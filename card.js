@@ -183,7 +183,7 @@ const CHAR_DB = [
   {
     id:'kaguya', name:'蓬莱山輝夜', type:'月人', hp:187, weakness:['月人','木'],
     moves:[
-      { name:'ブディストダイアモンド',        element:'星', cost:0, dmg:19 },
+      { name:'ブディストダイアモンド',        element:'星', cost:0, dmg:16, effects:[{ type:'selfStatus', status:'shield' }] },
       { name:'サラマンダーシールド',          element:'星', cost:1, dmg:45, effects:[{ type:'selfSwapAfter' }] },
       { name:'燕の子安貝-永命線-',            element:'光', cost:1, dmg:30, effects:[{ type:'healSelf', amount:30 }] },
       { name:'蓬莱の樹海',                    element:'木', cost:2, dmg:68, effects:[{ type:'bonusVsType', targetType:'月人', amount:35 }] },
@@ -467,8 +467,8 @@ const SPECIAL_DB = [
   { id:'sp_teamshield', name:'境界の守り',     desc:'自分のキャラ全員（メイン・ベンチ）の被ダメージを次の相手ターンまで-10する', kind:'special', effectType:'teamShield', amount:10 },
   { id:'sp_gensokyoguide', name:'幻想郷の導き', desc:'山札からランダムにキャラクターカードを3枚見て、1枚を選んで手札に加える（残りは山札に戻す）', kind:'special', effectType:'chooseFromTwo', amount:0 },
   { id:'sp_gap',         name:'スキマ',        desc:'相手のメインと、既にダメージを受けている相手ベンチのキャラを入れ替える（入れ替え先はこのカードの使用者が選ぶ）', kind:'special', effectType:'gapSwap', amount:0 },
-  { id:'sp_nuke_bench',  name:'一網打尽',      desc:'相手のベンチ全員に20ダメージ', kind:'special', effectType:'nukeBench', amount:20 },
-  { id:'sp_kamikakushi', name:'神隠し',        desc:'自分のベンチのキャラ（HPが半分以上のキャラのみ）を1体、山札へ戻す（normal段階のキャラならeasyとnormalの2枚を戻す）', kind:'special', effectType:'kamikakushi', amount:0 },
+  { id:'sp_nuke_bench',  name:'一網打尽',      desc:'相手のベンチ全員に15ダメージ', kind:'special', effectType:'nukeBench', amount:15 },
+  { id:'sp_kamikakushi', name:'神隠し',        desc:'自分のベンチのキャラ（HPが半分以上のキャラのみ）を1体選んで手札へ戻す（normalならeasyと合わせて2枚、hardなら3枚、lunaticなら4枚を戻す）', kind:'special', effectType:'kamikakushi', amount:0 },
   { id:'sp_migawari',    name:'身代わり札',    desc:'次に自分のメインが受けるダメージを半分にする', kind:'special', effectType:'halfDamageNext', amount:0 },
 ];
 

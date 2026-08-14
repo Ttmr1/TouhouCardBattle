@@ -313,7 +313,7 @@ const CHAR_DB = [
     moves:[
       { name:'ガゴウジサイクロン', element:'光', cost:0, dmg:21 },
       { name:'ガゴウジトルネード', element:'星', cost:1, dmg:30, effects:[{ type:'benchGiveEnergy', amount:1, count:1, forceRandom:true }] },
-      { name:'入鹿の雷',           element:'光', cost:2, dmg:30, effects:[{ type:'benchGiveEnergy', amount:4, count:1, forceRandom:true }] },
+      { name:'入鹿の雷',           element:'光', cost:2, dmg:40, effects:[{ type:'benchGiveEnergy', amount:2, count:1, forceRandom:true }] },
     ],
   },
   {

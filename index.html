@@ -734,7 +734,6 @@
 </head>
 <body>
   <h1>幻想結界カード対戦</h1>
-  <div class="subtitle">東方風・簡易TCGプロトタイプ（メイン＋ベンチ制）</div>
   <div id="app"></div>
   <div id="cardDetailOverlay" class="card-detail-overlay"></div>
   <div id="resultModal" class="result-modal"></div>
@@ -935,7 +934,7 @@ function renderOnlineUI(){
   if(onlineUI.phase === 'menu'){
     app.innerHTML = `
       <div class="table menu-screen">
-        <p>オンライン対戦（無料・サーバー不要のP2P通信です）</p>
+        <p>オンライン対戦</p>
         <div class="controls">
           <button id="onlineHostBtn">部屋を作る（ホスト）</button>
           <button id="onlineJoinBtn">合言葉で参加する</button>

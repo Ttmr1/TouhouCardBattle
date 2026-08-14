@@ -1,0 +1,4703 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幻想結界カード対戦 - Touhou TCG Prototype</title>
+<style>
+  :root{
+    --bg-night:#12162a;
+    --bg-night2:#1b2140;
+    --paper:#f4ecd8;
+    --paper-shadow:#d9cba8;
+    --ink:#2b2320;
+    --vermilion:#c0392b;
+    --vermilion-dark:#8f2a20;
+    --gold:#d9b64e;
+    --gold-soft:#efd98f;
+    --mist:#8892c9;
+
+    --t-human:#3f6fb0;
+    --t-youkai:#7c3fa0;
+    --t-vampire:#a5263a;
+    --t-oni:#c9722a;
+    --t-ghost:#2f8f7f;
+    --t-fairy:#c9a627;
+    --t-kami:#e0b23c;
+    --t-lunarian:#8f9fd6;
+    --t-mage:#7e57c2;
+    --t-sennin:#5a8f5a;
+    --t-other:#7a6a5a;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    background:
+      radial-gradient(ellipse at 50% -10%, #2a2f5c 0%, transparent 60%),
+      linear-gradient(180deg, var(--bg-night) 0%, var(--bg-night2) 100%);
+    color:var(--paper);
+    padding:16px;
+  }
+
+  h1{
+    text-align:center;
+    font-family:"Shippori Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+    font-weight:600;
+    letter-spacing:.12em;
+    font-size:clamp(20px,4vw,30px);
+    margin:4px 0 2px;
+    color:var(--gold-soft);
+    text-shadow:0 0 18px rgba(217,182,78,.35);
+  }
+  .subtitle{
+    text-align:center;
+    font-size:12px;
+    color:var(--mist);
+    margin-bottom:16px;
+    letter-spacing:.05em;
+  }
+
+  #app{ max-width:1180px; margin:0 auto; }
+
+  .table{
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+    border:1px solid rgba(217,182,78,.25);
+    border-radius:18px;
+    padding:16px;
+    display:grid;
+    grid-template-columns: 1fr 300px;
+    gap:16px;
+    align-items:start;
+  }
+  .table.log-hidden{ grid-template-columns: 1fr; }
+  .table.builder, .table.menu-screen{ display:block; }
+  .board{ display:flex; flex-direction:column; min-width:0; }
+
+  @media (max-width:960px){
+    .table{ grid-template-columns: 1fr; }
+    .log-panel{ max-height:160px; min-height:0; }
+  }
+
+  .side{ display:flex; gap:10px; align-items:flex-start; margin-bottom:4px; }
+  .deck-info{
+    font-size:12px;
+    color:var(--mist);
+    white-space:nowrap;
+    min-width:96px;
+  }
+  .ko-count{ margin-top:4px; color:var(--gold-soft); font-weight:700; }
+  .board-row{ flex:1; display:flex; gap:10px; flex-wrap:wrap; min-width:0; }
+
+  .barrier{
+    display:flex;
+    align-items:center;
+    text-align:center;
+    margin:10px 0;
+    color:var(--gold);
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    font-size:12px;
+    letter-spacing:.5em;
+  }
+  .barrier::before, .barrier::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity:.6;
+  }
+  .barrier span{ padding:0 10px; }
+
+  /* ---- Main slot ---- */
+  .slot{
+    min-height:118px;
+    border:1px dashed rgba(217,182,78,.35);
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--mist);
+    font-size:13px;
+    padding:8px;
+    text-align:center;
+  }
+  .main-slot{ flex:0 0 215px; }
+  .table.log-hidden .main-slot{ flex:0 0 290px; }
+
+  .active-card{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:12px;
+    padding:9px 10px;
+    box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px var(--paper-shadow);
+    --type-color:#888;
+    position:relative;
+    overflow:hidden;
+  }
+  .active-card::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:5px;
+    background:var(--type-color);
+  }
+  .active-card.targetable{ outline:3px solid var(--gold); box-shadow:0 0 14px rgba(217,182,78,.8); cursor:pointer; }
+  .ac-top{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:3px;}
+  .ac-name{ font-family:"Shippori Mincho","Yu Mincho",serif; font-weight:700; font-size:13px; }
+  .ac-type{
+    font-size:9px; padding:1px 6px; border-radius:999px;
+    background:var(--type-color); color:#fff; letter-spacing:.05em; white-space:nowrap;
+  }
+  .ac-meta{ font-size:10px; color:#6b5d4a; margin-top:2px; display:flex; justify-content:space-between; align-items:center; gap:5px;}
+  .status-tag{ font-size:9px; padding:2px 6px; border-radius:999px; color:#fff; white-space:nowrap; font-weight:700;}
+  .status-tag.burn{ background:#c0392b; }
+  .status-tag.freeze{ background:#3a8fd1; }
+  .status-tag.regen{ background:#4a9e5c; }
+  .status-tag.shield{ background:#8a7a3f; }
+  .status-tag.curse{ background:#4a2a5a; }
+  .stage-badge{
+    font-size:8px; padding:1px 5px; border-radius:999px; margin-left:5px;
+    color:#fff; font-weight:700; vertical-align:middle; white-space:nowrap;
+  }
+  .stage-badge.stage-normal{ background:#3a8fd1; }
+  .stage-badge.stage-hard{ background:#c9722a; }
+  .stage-badge.stage-lunatic{ background:#c0392b; }
+  .hp-bar-wrap{ margin-top:5px; height:7px; border-radius:5px; background:#d9cba8; overflow:hidden;}
+  .hp-bar-wrap.mini{ height:5px; margin-top:3px;}
+  .hp-bar{ height:100%; background:linear-gradient(90deg,#7fae5c,#a9cf7c); transition:width .3s ease;}
+  .hp-bar.low{ background:linear-gradient(90deg,#c0392b,#e0685a); }
+  .ac-energy{ margin-top:5px; display:flex; gap:3px; align-items:center; font-size:9px; color:#6b5d4a;}
+  .orb{ width:10px; height:10px; border-radius:50%; background:radial-gradient(circle at 30% 30%, var(--gold-soft), var(--gold) 70%); box-shadow:0 0 4px rgba(217,182,78,.7);}
+  .orb.empty{ background:#e2d7bd; box-shadow:none; }
+  .ac-item{ margin-top:4px; font-size:9px; color:#5a4a2f; background:rgba(0,0,0,.06); border-radius:5px; padding:2px 5px; display:inline-block;}
+  .weak-tag{ font-size:9px; color:var(--vermilion-dark); margin-top:4px;}
+  .ac-passive{ font-size:8px; color:#7a4fa0; margin-top:3px; font-weight:600; }
+
+  .ac-moves{ margin-top:6px; display:flex; flex-direction:column; gap:3px; }
+  .move-row{
+    display:flex; align-items:center; gap:8px; width:100%;
+    background:rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.12); border-radius:7px;
+    padding:4px 7px; font-family:inherit; font-size:10px; color:var(--ink);
+    cursor:pointer; text-align:left;
+  }
+  .move-row:not(:disabled):hover{ background:rgba(192,57,43,.12); border-color:var(--vermilion); }
+  .move-row:disabled{ opacity:.4; cursor:not-allowed; }
+  .move-cost{ color:var(--gold-soft); background:#4a3f30; border-radius:4px; padding:1px 4px; font-size:9px; min-width:16px; text-align:center; letter-spacing:-1px;}
+  .move-name{ flex:1; font-weight:600; }
+  .move-name small{ font-weight:400; color:#6b5d4a; }
+  .move-dmg{ font-weight:800; font-size:12px; }
+  .mult-tag{ color:var(--vermilion-dark); font-weight:800; }
+
+  /* ---- bench ---- */
+  .bench-row{ display:flex; gap:6px; flex:1; flex-wrap:wrap; align-items:flex-start; min-width:140px; }
+  .bench-card{
+    width:135px; background:var(--paper); color:var(--ink); border-radius:8px;
+    padding:5px 7px; font-size:9px; border-top:4px solid var(--type-color,#888);
+    box-shadow:0 3px 8px rgba(0,0,0,.3);
+  }
+  .table.log-hidden .bench-card{ width:180px; }
+  .bench-card.empty{
+    display:flex; align-items:center; justify-content:center; min-height:66px;
+    background:rgba(255,255,255,.04); color:var(--mist);
+    border:1px dashed rgba(217,182,78,.3); box-shadow:none;
+  }
+  .bench-card.swappable{ cursor:pointer; }
+  .bench-card.swappable:hover{ outline:2px solid var(--vermilion); }
+  .bench-card.targetable{ outline:3px solid var(--gold); box-shadow:0 0 12px rgba(217,182,78,.8); }
+  .bc-name{ font-weight:700; font-family:"Shippori Mincho","Yu Mincho",serif; font-size:11px; display:flex; justify-content:space-between; align-items:baseline; gap:4px;}
+  .bc-type{ font-size:8px; color:#6b5d4a; font-weight:400; white-space:nowrap;}
+  .bc-hp{ margin-top:2px; color:#4a3f30;}
+  .bc-energy{ margin-top:2px; color:#6b5d4a;}
+  .bc-weak{ margin-top:2px; color:var(--vermilion-dark);}
+  .bc-passive{ margin-top:2px; color:#7a4fa0; font-weight:600; }
+  .bc-moves{ margin-top:3px; color:#6b5d4a; font-size:9px; line-height:1.4;}
+  .bc-item{ margin-top:3px; font-size:9px; color:#6b5d4a;}
+
+  /* ---- log ---- */
+  .log-panel{
+    background:rgba(0,0,0,.28);
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:12px;
+    line-height:1.6;
+    max-height:640px;
+    min-height:300px;
+    overflow-y:auto;
+    color:#d9d4e8;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .log-title{
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    color:var(--gold-soft);
+    font-size:12px;
+    letter-spacing:.1em;
+    margin-bottom:6px;
+    border-bottom:1px solid rgba(217,182,78,.25);
+    padding-bottom:4px;
+  }
+  .log-name{ color:var(--gold-soft); font-weight:700; }
+  .log-dmg{ color:#ff8a76; font-weight:800; }
+  .log-heal{ color:#7fe0a0; font-weight:800; }
+  .log-reduce{ color:#8fc9ff; font-weight:800; }
+
+  .result-modal{
+    display:none;
+    position:fixed; inset:0; z-index:1001;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,.75);
+  }
+  .result-box{
+    background:var(--paper); color:var(--ink); border-radius:16px;
+    padding:32px 44px; text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,.6);
+  }
+  .result-banner{
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    font-size:clamp(36px,7vw,56px);
+    font-weight:800; letter-spacing:.06em;
+  }
+  .result-box.win .result-banner{ color:#2a7a3f; text-shadow:0 0 20px rgba(60,180,90,.4); }
+  .result-box.lose .result-banner{ color:var(--vermilion); text-shadow:0 0 20px rgba(192,57,43,.4); }
+  .result-sub{ margin-top:10px; font-size:14px; color:#4a3f30; }
+  .result-box .controls{ margin-top:18px; }
+
+  /* ---- hand ---- */
+  .opponent-hand-row{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding:5px 2px 8px;
+    justify-content:flex-start;
+  }
+  .opponent-hand-back{
+    flex:0 0 58px;
+    height:76px;
+    border-radius:8px;
+    border:1px solid rgba(217,182,78,.35);
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0 4px, rgba(0,0,0,.08) 4px 8px),
+      #292d4e;
+    box-shadow:0 3px 8px rgba(0,0,0,.28);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:rgba(239,217,143,.55);
+    font-size:18px;
+    user-select:none;
+  }
+  .opponent-hand-back.revealed{
+    background:var(--paper);
+    color:var(--ink);
+    font-size:10px;
+    font-weight:700;
+    line-height:1.25;
+    padding:4px;
+    text-align:center;
+    word-break:break-word;
+    border:1px solid rgba(192,57,43,.5);
+    box-shadow:0 0 8px rgba(192,57,43,.5), 0 3px 8px rgba(0,0,0,.28);
+  }
+  .opponent-hand-label{
+    color:var(--mist);
+    font-size:10px;
+    margin-right:4px;
+    white-space:nowrap;
+  }
+
+  .hand-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:12px 2px 4px;
+  }
+  .hcard{
+    flex:0 0 auto;
+    width:82px;
+    min-height:108px;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:10px;
+    padding:7px 6px;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,.3);
+    border-top:4px solid var(--type-color, var(--gold));
+    transition:transform .15s ease;
+    font-size:10px;
+  }
+  .hcard:hover{ transform:translateY(-4px); }
+  .hcard.dim{ opacity:.5; cursor:default; }
+  .hcard.dim:hover{ transform:none; }
+  .hcard.selected{ outline:3px solid var(--vermilion); transform:translateY(-4px); }
+  .hcard .hname{ font-weight:700; font-size:12px; line-height:1.3; font-family:"Shippori Mincho","Yu Mincho",serif;}
+  .hcard .htype{ margin-top:3px; color:#6b5d4a; }
+  .hcard .hhp{ margin-top:4px; color:#4a3f30;}
+  .hcard.energy{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
+  .hcard.energy .orb{ width:22px; height:22px; margin-bottom:6px;}
+  .hcard.energy .retreat-orb{ font-size:20px; line-height:1; margin-bottom:6px;}
+
+  /* ---- controls ---- */
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:10px;}
+  button{
+    font-family:inherit;
+    border:none;
+    border-radius:8px;
+    padding:9px 16px;
+    font-size:13px;
+    cursor:pointer;
+    background:var(--gold);
+    color:#2b2110;
+    font-weight:700;
+    letter-spacing:.03em;
+    transition:filter .15s ease, transform .15s ease;
+  }
+  button:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+  button:disabled{ opacity:.35; cursor:not-allowed; transform:none; }
+  button.attack{ background:var(--vermilion); color:#fff; }
+  button.resign{ background:#3a3f6b; color:#f0ecff; }
+
+  .gameover{
+    margin-top:14px;
+    text-align:center;
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    font-size:20px;
+    color:var(--gold-soft);
+  }
+  .banner-text{
+    font-size:clamp(28px,6vw,44px);
+    letter-spacing:.15em;
+    color:var(--gold-soft);
+    text-shadow:0 0 20px rgba(217,182,78,.6);
+    margin-bottom:6px;
+  }
+  .banner-text.lose{ color:var(--vermilion); text-shadow:0 0 20px rgba(192,57,43,.6); }
+  .gameover button{ margin-top:10px; }
+
+  .hint{ text-align:center; font-size:11px; color:var(--mist); margin-top:6px; }
+  .thinking{ color:var(--gold-soft); font-size:12px; text-align:center; margin-top:8px; }
+  .select-hint{ text-align:center; font-size:12px; color:var(--gold-soft); margin-top:6px; }
+
+  /* ---- menu / builder ---- */
+  .menu-screen{ text-align:center; padding:30px 10px; }
+  .menu-screen p{ color:var(--mist); font-size:13px; margin-bottom:16px; }
+  .menu-screen p.small{ font-size:11px; margin-bottom:6px; }
+  .menu-screen .online-error{ color:#e0685a; font-size:12px; margin-bottom:10px; }
+
+  /* ---- online lobby ---- */
+  .room-code{
+    font-family:monospace; font-size:26px; letter-spacing:4px; font-weight:700;
+    color:var(--gold-soft); background:rgba(255,255,255,.06); border:1px dashed var(--gold);
+    border-radius:8px; padding:12px 10px; margin:0 auto 14px; max-width:260px;
+  }
+  .room-code-copy{ font-size:11px; margin-top:-8px; margin-bottom:14px; }
+  .join-code-input{
+    width:200px; text-align:center; font-family:monospace; font-size:18px; letter-spacing:3px;
+    text-transform:uppercase; padding:8px 6px; border-radius:6px; border:1px solid var(--gold-soft);
+    background:rgba(255,255,255,.06); color:var(--paper); margin-bottom:14px;
+  }
+  .online-badge{
+    display:inline-block; font-size:10px; color:var(--gold-soft); border:1px solid rgba(217,182,78,.5);
+    border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:middle;
+  }
+  .online-disconnect-banner{
+    text-align:center; font-size:12px; color:#e0685a; background:rgba(224,104,90,.12);
+    border:1px solid rgba(224,104,90,.5); border-radius:6px; padding:6px; margin-top:8px;
+  }
+  .spinner-dots::after{ content:'…'; animation:dotpulse 1.2s steps(4,end) infinite; }
+  @keyframes dotpulse{ 0%,100%{opacity:.3;} 50%{opacity:1;} }
+
+  .builder-title{ font-family:"Shippori Mincho","Yu Mincho",serif; color:var(--gold-soft); font-size:18px; margin:4px 0 8px; text-align:center;}
+  .builder-summary{ text-align:center; font-size:13px; color:var(--mist); margin-bottom:4px; font-weight:700;}
+  .builder-summary.summary-ok{ color:#7fd88f; }
+  .builder-summary.warn{ color:#e0685a; }
+  .warn{ text-align:center; font-size:12px; color:#e0685a; margin-bottom:4px;}
+  .builder-section-title{
+    font-family:"Shippori Mincho","Yu Mincho",serif; color:var(--gold); font-size:13px;
+    margin:14px 0 6px; border-bottom:1px solid rgba(217,182,78,.25); padding-bottom:3px;
+  }
+  .deck-list{ display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto; padding-right:4px;}
+  .deck-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:rgba(255,255,255,.04); border-left:4px solid var(--type-color, var(--gold));
+    border-radius:6px; padding:6px 10px;
+  }
+  .dr-info b{ font-size:13px; }
+  .dr-sub{ display:block; font-size:10px; color:var(--mist); margin-top:2px;}
+  .stepper{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .stepper button{ padding:4px 10px; font-size:14px; }
+  .stepper span{ min-width:16px; text-align:center; font-weight:700;}
+  .char-row{ flex-direction:column; align-items:stretch; gap:8px; }
+  .stage-stepper-group{ display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-start; }
+  .stage-stepper{ display:flex; flex-direction:column; align-items:center; gap:3px; background:rgba(0,0,0,.15); border-radius:6px; padding:5px 8px;}
+  .stage-stepper-label{ font-size:9px; color:var(--mist); }
+  .stage-stepper .stepper button{ padding:2px 8px; font-size:12px; }
+
+  .character-selection-summary{
+    text-align:center;
+    color:var(--gold-soft);
+    font-size:12px;
+    margin:6px 0;
+  }
+  .energy-stepper{ gap:5px; }
+  .energy-stepper button{ min-width:44px; padding:4px 7px; font-size:12px; }
+
+  /* ---- builder character/filter modals ---- */
+  .builder-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    background:rgba(0,0,0,.78);
+  }
+  .builder-modal.filter-modal{ z-index:1100; }
+  .builder-modal-box{
+    width:min(1050px,96vw);
+    max-height:90vh;
+    overflow:hidden;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:16px;
+    box-shadow:0 20px 60px rgba(0,0,0,.65);
+    padding:16px;
+  }
+  .char-modal-box{ display:flex; flex-direction:column; }
+  .filter-modal-box{ width:min(900px,96vw); overflow-y:auto; max-height:88vh; }
+  .builder-modal.card-choice-modal{ z-index:1200; }
+  .card-choice-box{ width:min(560px,94vw); overflow-y:auto; max-height:80vh; }
+  .builder-modal.manual-modal{ z-index:1300; }
+  .manual-box{ width:min(760px,94vw); overflow-y:auto; max-height:88vh; text-align:left; }
+  .manual-content h4{
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    color:var(--vermilion-dark);
+    font-size:16px;
+    margin:18px 0 6px;
+    border-bottom:2px solid rgba(192,57,43,.25);
+    padding-bottom:4px;
+  }
+  .manual-content h4:first-child{ margin-top:0; }
+  .manual-content p{ margin:6px 0; font-size:13px; line-height:1.7; color:#4a3f30; }
+  .manual-content ul{ margin:6px 0; padding-left:20px; font-size:13px; line-height:1.7; color:#4a3f30; }
+  .manual-content li{ margin:3px 0; }
+  .manual-content .manual-sub{ font-weight:700; color:#6b3020; }
+  .manual-content table{ width:100%; border-collapse:collapse; margin:8px 0; font-size:12px; }
+  .manual-content th, .manual-content td{ border:1px solid rgba(80,60,30,.18); padding:5px 8px; text-align:left; }
+  .manual-content th{ background:rgba(192,57,43,.1); color:#6b3020; }
+  .manual-btn{ background:#3a3f6b; color:#f0ecff; }
+  .builder-modal.deck-slots-modal{ z-index:1300; }
+  .slots-box{ width:min(560px,94vw); overflow-y:auto; max-height:80vh; text-align:left; }
+  .deck-slot-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border-radius:8px; background:rgba(80,60,30,.06);
+    border:1px solid rgba(80,60,30,.14); margin-bottom:8px;
+  }
+  .deck-slot-row.empty-slot{ opacity:.75; }
+  .deck-slot-info{ display:flex; flex-direction:column; font-size:13px; }
+  .deck-slot-info .dr-sub{ font-size:11px; color:#766a59; margin-top:2px; }
+  .deck-slot-actions{ display:flex; gap:5px; flex-wrap:wrap; }
+  .deck-slot-actions button{ font-size:11px; padding:6px 9px; }
+  .choice-option{ cursor:pointer; transition:transform .12s ease, outline .12s ease; }
+  .choice-option:hover{ outline:3px solid var(--vermilion); transform:translateY(-3px); }
+  .builder-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .builder-modal-header h3{
+    margin:0;
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    color:#4a3f30;
+    font-size:18px;
+  }
+  .modal-close{
+    background:#3a3f6b;
+    color:#fff;
+    padding:4px 11px;
+    font-size:18px;
+    line-height:1;
+  }
+  .char-modal-controls{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .filter-result-count{ font-size:12px; color:#6b5d4a; font-weight:700; }
+  .char-modal-list{
+    max-height:68vh;
+    overflow-y:auto;
+    padding-right:4px;
+  }
+  .character-card-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:14px;
+    align-items:stretch;
+  }
+  .character-select-card{
+    --type-color:#888;
+    background:#f3ead4;
+    color:#4a3f30;
+    border-radius:16px;
+    padding:14px 14px 12px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 6px 14px rgba(0,0,0,.24), inset 0 0 0 1px rgba(80,60,30,.18);
+    border-top:6px solid var(--type-color);
+    display:flex;
+    flex-direction:column;
+  }
+  .character-select-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+  }
+  .character-select-name{
+    font-family:"Shippori Mincho","Yu Mincho",serif;
+    font-weight:700;
+    font-size:17px;
+    line-height:1.25;
+  }
+  .character-select-type{
+    flex:0 0 auto;
+    color:#fff;
+    background:var(--type-color);
+    border-radius:999px;
+    padding:4px 9px;
+    font-size:11px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .character-select-hp{ margin-top:8px; font-size:13px; }
+  .energy-orb-display{ text-align:center; margin:6px 0; }
+  .energy-orb-display .orb{ width:26px; height:26px; }
+  .energy-orb-display{ font-size:26px; line-height:1; }
+  .retreat-orb{ font-size:16px; line-height:1; }
+  .character-select-energy{
+    margin-top:8px;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-size:11px;
+  }
+  .character-select-energy .orb{ width:18px; height:18px; }
+  .character-select-moves{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .character-select-move{
+    display:grid;
+    grid-template-columns:28px 1fr 30px;
+    align-items:center;
+    gap:6px;
+    min-height:42px;
+    padding:5px 7px;
+    border-radius:8px;
+    background:rgba(80,60,30,.06);
+    border:1px solid rgba(80,60,30,.10);
+  }
+  .character-select-cost{
+    display:flex;
+    justify-content:center;
+    gap:2px;
+  }
+  .character-select-cost .orb{ width:15px; height:15px; }
+  .character-select-move-name{ font-weight:700; font-size:11px; line-height:1.25; }
+  .character-select-move-desc{ display:block; margin-top:2px; color:#766a59; font-size:9px; font-weight:400; }
+  .character-select-desc-row{
+    min-height:42px;
+    padding:8px 9px;
+    border-radius:8px;
+    background:rgba(80,60,30,.06);
+    border:1px solid rgba(80,60,30,.10);
+    font-size:12px;
+    line-height:1.5;
+    display:flex;
+    align-items:center;
+  }
+  .character-select-dmg{ text-align:right; font-size:14px; font-weight:800; }
+  .character-select-weak{
+    margin-top:8px;
+    color:var(--vermilion-dark);
+    font-size:11px;
+    font-weight:700;
+  }
+  .character-select-passive{
+    margin-top:6px;
+    color:#7a4fa0;
+    font-size:11px;
+    font-weight:700;
+    line-height:1.4;
+  }
+  .character-select-count{
+    margin-top:9px;
+    padding-top:8px;
+    border-top:1px solid rgba(80,60,30,.14);
+    font-size:11px;
+    font-weight:700;
+  }
+  .character-select-stage-controls{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:5px;
+    margin-top:7px;
+  }
+  .builder-card-body{ flex:1; }
+  .builder-card-controls{ margin-top:auto; }
+  .single-stepper-wrap{ text-align:center; padding-top:8px; border-top:1px solid rgba(80,60,30,.14); }
+  .single-stepper-wrap .stepper{ justify-content:center; margin-top:4px; }
+  .builder-save-note{ text-align:center; font-size:11px; color:var(--mist); margin-bottom:10px; }
+  .character-select-stage{
+    background:rgba(0,0,0,.045);
+    border-radius:7px;
+    padding:5px 3px;
+    text-align:center;
+  }
+  .character-select-stage-label{ display:block; font-size:8px; color:#766a59; margin-bottom:3px; }
+  .character-select-stage .stepper{ justify-content:center; gap:4px; }
+  .character-select-stage .stepper button{ padding:2px 6px; font-size:11px; }
+  .character-select-stage .stepper span{ min-width:12px; font-size:11px; }
+  @media(max-width:700px){
+    .character-card-grid{ grid-template-columns:1fr; }
+  }
+
+  .filter-group{
+    margin:12px 0;
+    padding:10px;
+    background:rgba(0,0,0,.045);
+    border-radius:8px;
+  }
+  .filter-group-title{
+    font-weight:700;
+    color:#4a3f30;
+    margin-bottom:8px;
+    font-size:13px;
+  }
+  .filter-options{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+  }
+  .filter-option{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 8px;
+    border:1px solid rgba(74,63,48,.2);
+    border-radius:7px;
+    background:#fffaf0;
+    color:#4a3f30;
+    font-size:12px;
+    cursor:pointer;
+  }
+  .filter-option input{ accent-color:var(--vermilion); }
+
+  /* ---- card detail overlay (hover) ---- */
+  .card-detail-overlay{
+    display:none;
+    position:fixed; inset:0; z-index:999;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55);
+    pointer-events:none;
+  }
+  .detail-card{
+    background:var(--paper); color:var(--ink); border-radius:14px; padding:16px 18px;
+    width:270px; box-shadow:0 12px 30px rgba(0,0,0,.5), inset 0 0 0 1px var(--paper-shadow);
+    --type-color:#888; position:relative; overflow:hidden;
+  }
+  .detail-card::before{ content:""; position:absolute; top:0;left:0;right:0; height:6px; background:var(--type-color); }
+  .detail-top{ display:flex; justify-content:space-between; align-items:baseline; margin-top:4px;}
+  .detail-name{ font-family:"Shippori Mincho","Yu Mincho",serif; font-weight:700; font-size:18px;}
+  .detail-type{ font-size:11px; padding:3px 8px; border-radius:999px; background:var(--type-color); color:#fff;}
+  .detail-hp{ margin-top:6px; font-size:13px; color:#4a3f30;}
+  .detail-weak{ margin-top:4px; font-size:12px; color:var(--vermilion-dark);}
+  .detail-passive{ margin-top:4px; font-size:11px; color:#7a4fa0; font-weight:600; }
+  .detail-moves{ margin-top:10px; display:flex; flex-direction:column; gap:5px;}
+  .detail-move-row{ display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#4a3f30; background:rgba(0,0,0,.05); border-radius:5px; padding:4px 7px;}
+  .detail-dmg{ font-weight:800; }
+  .detail-title{ font-family:"Shippori Mincho","Yu Mincho",serif; font-weight:700; font-size:16px;}
+  .detail-desc{ margin-top:8px; font-size:12px; color:#4a3f30;}
+
+  @media (max-width:480px){
+    .main-slot{ flex-basis:100%; }
+    .bench-card{ width:120px; }
+  }
+</style>
+</head>
+<body>
+  <h1>幻想結界カード対戦</h1>
+  <div class="subtitle">東方風・簡易TCGプロトタイプ（メイン＋ベンチ制）</div>
+  <div id="app"></div>
+  <div id="cardDetailOverlay" class="card-detail-overlay"></div>
+  <div id="resultModal" class="result-modal"></div>
+
+  <script src="card.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+/* =========================================================
+   状態
+========================================================= */
+let state = null;      // 対戦中の状態
+let aiActingIdx = 1;   // 現在AIが操作しているプレイヤーのインデックス（観戦モードでは0にもなる）
+let builder = null;    // デッキ編成中の状態
+let savedMode = null;
+let manualModalOpen = false; // 説明書モーダルの表示状態（画面をまたいで共通）
+let savedDecks = null; // [player0の元デッキ, player1の元デッキ]（再戦用）
+
+/* =========================================================
+   オンライン対戦（PeerJS による P2P 通信）
+   ------------------------------------------------------------
+   ・ホスト（部屋を作った側）が常に state を実際に計算する「唯一の権威」。
+     player0 = ホスト、player1 = ゲスト、に固定する。
+   ・ホストは render() のたびに state 全体を JSON 化してゲストへ送信する。
+   ・ゲストは自分の操作を「関数名＋引数」のメッセージとしてホストへ送るだけで、
+     ローカルの state は直接書き換えない（ホストから届いた state で丸ごと置き換える）。
+   ・簡易実装のため、相手の手札の中身を隠す処理は行っていません（開発者ツール等で
+     覗こうと思えば見えてしまいます）。友人同士のカジュアルプレイを想定しています。
+========================================================= */
+let netRole = null;        // 'host' | 'guest' | null
+let myPlayerIdx = 0;       // オンライン対戦時の自分のプレイヤー番号（ホスト=0 / ゲスト=1）
+let peer = null;           // PeerJSのPeerインスタンス
+let conn = null;           // PeerJSのDataConnection
+let onlineUI = null;       // ロビー画面（部屋作成／参加）の表示状態
+let onlineHostOwnDeck = null;  // ホスト自身が組んだデッキ（相手のデッキ到着待ちの間保持）
+let onlineGuestDeck = null;    // ホストが受け取ったゲストのデッキ
+const ROOM_PREFIX = 'thcb-v1-';
+
+function getSelfIdx(){
+  if(!state) return 0;
+  if(state.mode === 'cpu' || state.mode === 'spectator') return 0;
+  if(state.mode === 'online') return myPlayerIdx;
+  return state.turn; // ホットシート：常に「今の手番の人」が自分側の画面になる
+}
+
+function generateRoomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 紛らわしい文字(0/O, 1/I)は除外
+  let s = '';
+  for(let i=0;i<5;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+function cleanupPeer(){
+  try{ if(conn){ conn.close(); } }catch(e){}
+  try{ if(peer){ peer.destroy(); } }catch(e){}
+  conn = null;
+  peer = null;
+  netRole = null;
+  myPlayerIdx = 0;
+  onlineHostOwnDeck = null;
+  onlineGuestDeck = null;
+}
+
+function showOnlineMenu(){
+  cleanupPeer();
+  onlineUI = { phase:'menu' };
+  renderOnlineUI();
+}
+
+function startHosting(){
+  netRole = 'host';
+  myPlayerIdx = 0;
+  const code = generateRoomCode();
+  onlineUI = { phase:'hosting-wait', roomCode: code };
+  renderOnlineUI();
+  try{
+    peer = new Peer(ROOM_PREFIX + code, { debug: 0 });
+  }catch(e){
+    onlineUI = { phase:'error', error:'この端末ではオンライン対戦を利用できません。' };
+    renderOnlineUI();
+    return;
+  }
+  peer.on('connection', (c)=>{
+    if(conn){ try{ c.close(); }catch(e){} return; } // 既に対戦相手がいる場合は追加接続を拒否
+    conn = c;
+    setupConnHandlers(conn);
+    conn.on('open', ()=>{
+      onlineUI = null;
+      beginDeckBuilding('online');
+    });
+  });
+  peer.on('error', (err)=>{
+    const type = err && err.type;
+    onlineUI = { phase:'error', error: type === 'unavailable-id'
+      ? 'この合言葉は現在使用中です。もう一度お試しください。'
+      : '通信エラーが発生しました。ネットワーク設定をご確認ください。' };
+    renderOnlineUI();
+  });
+}
+
+function startJoining(){
+  onlineUI = { phase:'join-input', codeValue:'' };
+  renderOnlineUI();
+}
+
+function connectToRoom(rawCode){
+  const code = (rawCode||'').trim().toUpperCase();
+  if(!code){ return; }
+  netRole = 'guest';
+  myPlayerIdx = 1;
+  onlineUI = { phase:'joining-wait' };
+  renderOnlineUI();
+  try{
+    peer = new Peer({ debug: 0 });
+  }catch(e){
+    onlineUI = { phase:'error', error:'この端末ではオンライン対戦を利用できません。' };
+    renderOnlineUI();
+    return;
+  }
+  peer.on('open', ()=>{
+    conn = peer.connect(ROOM_PREFIX + code, { reliable:true });
+    setupConnHandlers(conn);
+    conn.on('open', ()=>{
+      onlineUI = null;
+      beginDeckBuilding('online');
+    });
+  });
+  peer.on('error', (err)=>{
+    const type = err && err.type;
+    onlineUI = { phase:'error', error: type === 'peer-unavailable'
+      ? '合言葉が見つかりません。スペルや部屋の状態を確認してください。'
+      : '通信エラーが発生しました。ネットワーク設定をご確認ください。' };
+    renderOnlineUI();
+  });
+}
+
+function setupConnHandlers(c){
+  c.on('data', (msg)=>{ try{ handlePeerMessage(msg); }catch(e){ console.error(e); } });
+  c.on('close', ()=>{ handlePeerDisconnect(); });
+  c.on('error', ()=>{ handlePeerDisconnect(); });
+}
+
+function handlePeerDisconnect(){
+  if(onlineUI){
+    onlineUI = { phase:'error', error:'対戦相手との接続が切断されました。' };
+    renderOnlineUI();
+    return;
+  }
+  if(builder && builder.mode === 'online'){
+    onlineUI = { phase:'error', error:'対戦相手との接続が切断されました。' };
+    builder = null;
+    renderOnlineUI();
+    return;
+  }
+  if(state && state.mode === 'online' && !state.gameOver && !state.disconnected){
+    state.disconnected = true;
+    log('対戦相手との接続が切断されました。');
+    render();
+  }
+}
+
+function handlePeerMessage(msg){
+  if(!msg || !msg.t) return;
+  if(msg.t === 'deck' && netRole === 'host'){
+    onlineGuestDeck = msg.deck;
+    if(onlineHostOwnDeck){ startOnlineGame(); }
+    else if(onlineUI){ onlineUI = { phase:'deck-wait' }; renderOnlineUI(); }
+    return;
+  }
+  if(msg.t === 'action' && netRole === 'host'){
+    if(!state || state.mode !== 'online' || state.gameOver || state.disconnected) return;
+    const f = REMOTE_ACTIONS[msg.fn];
+    if(f) f.apply(null, msg.args || []);
+    return;
+  }
+  if(msg.t === 'state' && netRole === 'guest'){
+    const prevLogVisible = state ? state.logVisible : true;
+    state = msg.state;
+    if(typeof prevLogVisible === 'boolean') state.logVisible = prevLogVisible;
+    onlineUI = null;
+    render();
+    return;
+  }
+}
+
+function startOnlineGame(){
+  const startingIdx = Math.random() < 0.5 ? 0 : 1;
+  const hostDeck = onlineHostOwnDeck.slice();
+  const guestDeck = onlineGuestDeck.slice();
+  savedMode = 'online';
+  savedDecks = [hostDeck, guestDeck];
+  onlineUI = null;
+  initGame('online', [shuffle(hostDeck.slice()), shuffle(guestDeck.slice())], startingIdx);
+}
+
+function renderOnlineUI(){
+  const app = document.getElementById('app');
+  if(!onlineUI){ return; }
+  if(onlineUI.phase === 'menu'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p>オンライン対戦（無料・サーバー不要のP2P通信です）</p>
+        <div class="controls">
+          <button id="onlineHostBtn">部屋を作る（ホスト）</button>
+          <button id="onlineJoinBtn">合言葉で参加する</button>
+        </div>
+        <div class="controls" style="margin-top:10px;">
+          <button id="backToMenuFromOnline" class="resign">戻る</button>
+        </div>
+      </div>`;
+  } else if(onlineUI.phase === 'hosting-wait'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p>この合言葉を対戦相手に伝えてください</p>
+        <div class="room-code">${onlineUI.roomCode}</div>
+        <p class="small spinner-dots">相手の接続を待っています</p>
+        <div class="controls" style="margin-top:10px;">
+          <button id="backToMenuFromOnline" class="resign">キャンセル</button>
+        </div>
+      </div>`;
+  } else if(onlineUI.phase === 'join-input'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p>対戦相手から聞いた合言葉を入力してください</p>
+        <input type="text" id="joinCodeInput" class="join-code-input" maxlength="5" placeholder="ABCDE" autocomplete="off" autocapitalize="characters">
+        <div class="controls">
+          <button id="joinConnectBtn">接続する</button>
+        </div>
+        <div class="controls" style="margin-top:10px;">
+          <button id="backToMenuFromOnline" class="resign">戻る</button>
+        </div>
+      </div>`;
+    const inputEl = document.getElementById('joinCodeInput');
+    if(inputEl){ inputEl.focus(); }
+  } else if(onlineUI.phase === 'joining-wait'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p class="spinner-dots">接続しています</p>
+      </div>`;
+  } else if(onlineUI.phase === 'deck-wait'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p class="spinner-dots">対戦相手のデッキ準備を待っています</p>
+      </div>`;
+  } else if(onlineUI.phase === 'error'){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p class="online-error">${onlineUI.error || 'エラーが発生しました。'}</p>
+        <div class="controls">
+          <button id="backToMenuFromOnline">オンライン対戦メニューに戻る</button>
+        </div>
+      </div>`;
+  }
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+/* ---- 進化ステージ ---- */
+const STAGE_ORDER = ['easy','normal','hard','lunatic'];
+const ELEMENT_LIST = ['木','火','水','氷','岩','闇','光','星'];
+const STAGE_LABEL = { easy:'イージー', normal:'ノーマル', hard:'ハード', lunatic:'ルナティック' };
+function stageIdx(instance){ return STAGE_ORDER.indexOf(instance.stage || 'easy'); }
+function findInstanceOwner(instance){
+  if(!state || !state.players) return null;
+  for(const p of state.players){
+    if(p.main === instance) return p;
+    if(p.bench && p.bench.includes(instance)) return p;
+  }
+  return null;
+}
+function hasAllyOnField(player, allyCharId){
+  if(!player) return false;
+  if(player.main && player.main.card.id === allyCharId) return true;
+  return player.bench.some(b=>b && b.card.id === allyCharId);
+}
+function getMaxHp(instance){
+  const idx = stageIdx(instance);
+  // easy→normal:+10、normal→hard:+20、hard→lunatic:+30（累積）
+  const evolutionHpBonus = idx * (idx + 1) * 5;
+  let base = instance.card.hp + evolutionHpBonus + (instance.maxHpBonus||0);
+  const passive = instance.card.passive;
+  if(passive && passive.type === 'hpBonusIfAllyPresent'){
+    const owner = findInstanceOwner(instance);
+    if(owner && hasAllyOnField(owner, passive.allyId)) base += passive.amount;
+  }
+  return base;
+}
+function evolveInstance(instance){
+  const idx = stageIdx(instance);
+  if(idx >= STAGE_ORDER.length-1) return false;
+  const nextStage = STAGE_ORDER[idx+1];
+  const hpBonus = (idx + 1) * 10; // +10 / +20 / +30
+  instance.stage = nextStage;
+  instance.hp += hpBonus;
+  // 攻撃力はcomputeDamage側でstageに応じて累積+5されるため、
+  // インスタンスに別途加算しない。
+  return true;
+}
+
+/* =========================================================
+   デッキ編成
+========================================================= */
+function freshSelections(){
+  const chars = {}; CHAR_DB.forEach(c=>{ chars[c.id] = { easy:0, normal:0, hard:0, lunatic:0 }; });
+  const items = {}; ITEM_DB.forEach(it=>items[it.id]=0);
+  const specials = {}; SPECIAL_DB.forEach(sp=>specials[sp.id]=0);
+  const supports = {}; SUPPORT_DB.forEach(su=>supports[su.id]=0);
+  return { chars, energy:0, retreatEnergy:0, items, specials, supports };
+}
+
+function compileDeckFromSelections(sel){
+  const deck = [];
+  CHAR_DB.forEach(c=>{
+    STAGE_ORDER.forEach(stage=>{
+      const n = sel.chars[c.id][stage];
+      for(let i=0;i<n;i++) deck.push({...c, isEnergy:false, isRetreatEnergy:false, isItem:false, isSpecial:false, isSupport:false, cardStage:stage});
+    });
+  });
+  for(let i=0;i<sel.energy;i++) deck.push({ id:'energy_'+i, name:'霊力エネルギー', isEnergy:true, isRetreatEnergy:false, isItem:false, isSpecial:false, isSupport:false });
+  for(let i=0;i<(sel.retreatEnergy||0);i++) deck.push({ id:'retreat_energy_'+i, name:'交代エネルギー', isEnergy:false, isRetreatEnergy:true, isItem:false, isSpecial:false, isSupport:false });
+  ITEM_DB.forEach(it=>{
+    for(let i=0;i<sel.items[it.id];i++) deck.push({...it, isEnergy:false, isRetreatEnergy:false, isItem:true, isSpecial:false, isSupport:false});
+  });
+  SPECIAL_DB.forEach(sp=>{
+    for(let i=0;i<sel.specials[sp.id];i++) deck.push({...sp, isEnergy:false, isRetreatEnergy:false, isItem:false, isSpecial:true, isSupport:false});
+  });
+  SUPPORT_DB.forEach(su=>{
+    for(let i=0;i<sel.supports[su.id];i++) deck.push({...su, isEnergy:false, isRetreatEnergy:false, isItem:false, isSpecial:false, isSupport:true});
+  });
+  return deck;
+}
+
+const DECK_SIZE = 70;
+const CHAR_STAGE_CAP = { easy:4, normal:3, hard:3, lunatic:3 };
+
+function autoBuildDeck(){
+  const sel = freshSelections();
+  // キャラクター：3体を選び、easyは3枚・normal〜lunaticは各1枚採用
+  // easyを厚めにして初手でキャラを出しやすくしつつ、lunaticまで育てられるようにする
+  const ids = shuffle(CHAR_DB.map(c=>c.id)).slice(0,3);
+  ids.forEach(id=>{ sel.chars[id].easy = 3; sel.chars[id].normal = 1; sel.chars[id].hard = 1; sel.chars[id].lunatic = 1; });
+  // 特殊カードは全種1枚ずつ
+  SPECIAL_DB.forEach(sp=>sel.specials[sp.id]=1);
+  // サポートカードは全種2枚ずつ
+  SUPPORT_DB.forEach(su=>sel.supports[su.id]=2);
+  // 持ち物は全種2枚ずつ
+  ITEM_DB.forEach(it=>sel.items[it.id]=2);
+  const charTotal = ids.length * 6; // 18
+  sel.retreatEnergy = 11;
+  const used = charTotal + SPECIAL_DB.length + SUPPORT_DB.length*2 + ITEM_DB.length*2 + sel.retreatEnergy;
+  sel.energy = Math.max(0, DECK_SIZE - used);
+  return compileDeckFromSelections(sel);
+}
+
+function builderTotal(){
+  const s = builder.selections;
+  let charTotal = 0;
+  Object.values(s.chars).forEach(stages=>{ STAGE_ORDER.forEach(st=>{ charTotal += stages[st]; }); });
+  return charTotal + s.energy + (s.retreatEnergy||0)
+       + Object.values(s.items).reduce((a,b)=>a+b,0)
+       + Object.values(s.specials).reduce((a,b)=>a+b,0)
+       + Object.values(s.supports).reduce((a,b)=>a+b,0);
+}
+
+const BUILDER_DRAFT_KEY = 'touhouTcgBuilderDraft';
+const DECK_SLOTS_KEY = 'touhouTcgDeckSlots';
+const DECK_SLOT_COUNT = 5;
+
+function loadDeckSlots(){
+  try{
+    const raw = localStorage.getItem(DECK_SLOTS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    // 常にDECK_SLOT_COUNT個の配列にそろえる（足りない分はnullで埋める）
+    const result = [];
+    for(let i=0;i<DECK_SLOT_COUNT;i++){ result.push(arr[i] || null); }
+    return result;
+  }catch(e){
+    return new Array(DECK_SLOT_COUNT).fill(null);
+  }
+}
+function saveDeckSlots(slots){
+  try{ localStorage.setItem(DECK_SLOTS_KEY, JSON.stringify(slots)); }catch(e){}
+}
+function isValidSavedDeckSelections(sel){
+  if(!sel || typeof sel !== 'object') return false;
+  if(!sel.chars || typeof sel.energy !== 'number' || !sel.items || !sel.specials || !sel.supports) return false;
+  return true;
+}
+function saveDeckToSlot(slotIndex, selections, label){
+  const slots = loadDeckSlots();
+  slots[slotIndex] = {
+    label: label || `スロット${slotIndex+1}`,
+    savedAt: Date.now(),
+    selections: JSON.parse(JSON.stringify(selections)),
+  };
+  saveDeckSlots(slots);
+}
+function loadDeckFromSlot(slotIndex){
+  const slots = loadDeckSlots();
+  const entry = slots[slotIndex];
+  if(!entry || !isValidSavedDeckSelections(entry.selections)) return null;
+  return repairBuilderSelections(entry.selections);
+}
+function clearDeckSlot(slotIndex){
+  const slots = loadDeckSlots();
+  slots[slotIndex] = null;
+  saveDeckSlots(slots);
+}
+
+function saveBuilderDraft(){
+  if(!builder) return;
+  try{ localStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(builder)); }catch(e){}
+}
+function loadBuilderDraft(){
+  try{
+    const raw = localStorage.getItem(BUILDER_DRAFT_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function clearBuilderDraft(){
+  try{ localStorage.removeItem(BUILDER_DRAFT_KEY); }catch(e){}
+}
+function repairBuilderSelections(sel){
+  if(!sel || typeof sel !== 'object') sel = {};
+  const chars = (sel.chars && typeof sel.chars === 'object') ? sel.chars : {};
+  CHAR_DB.forEach(c=>{
+    const st = (chars[c.id] && typeof chars[c.id] === 'object') ? chars[c.id] : {};
+    chars[c.id] = {
+      easy: typeof st.easy === 'number' ? st.easy : 0,
+      normal: typeof st.normal === 'number' ? st.normal : 0,
+      hard: typeof st.hard === 'number' ? st.hard : 0,
+      lunatic: typeof st.lunatic === 'number' ? st.lunatic : 0,
+    };
+  });
+  const items = (sel.items && typeof sel.items === 'object') ? sel.items : {};
+  ITEM_DB.forEach(it=>{ if(typeof items[it.id] !== 'number') items[it.id] = 0; });
+  const specials = (sel.specials && typeof sel.specials === 'object') ? sel.specials : {};
+  SPECIAL_DB.forEach(sp=>{ if(typeof specials[sp.id] !== 'number') specials[sp.id] = 0; });
+  const supports = (sel.supports && typeof sel.supports === 'object') ? sel.supports : {};
+  SUPPORT_DB.forEach(su=>{ if(typeof supports[su.id] !== 'number') supports[su.id] = 0; });
+  const energy = typeof sel.energy === 'number' ? sel.energy : 0;
+  return { chars, energy, items, specials, supports };
+}
+function isValidBuilderDraft(draft){
+  return !!(draft && typeof draft === 'object' && (draft.mode === 'cpu' || draft.mode === 'hotseat') && draft.decks);
+}
+
+function beginDeckBuilding(mode, aiDifficulty){
+  builder = {
+    mode:mode,
+    aiDifficulty: aiDifficulty || 'normal',
+    playerIdx: mode === 'online' ? myPlayerIdx : 0,
+    decks:[null,null],
+    selections:freshSelections(),
+    filterOpen:false,
+    charFilter:{ types:[], elements:[], weaknesses:[] },
+    slotModalOpen:false
+  };
+  if(mode === 'cpu'){
+    builder.decks[1] = autoBuildDeck();
+  }
+  renderBuilder();
+}
+
+function adjustCharStage(id, stage, delta){
+  const v = builder.selections.chars[id][stage] + delta;
+  if(v < 0 || v > CHAR_STAGE_CAP[stage]) return;
+  if(builderTotal() + delta > DECK_SIZE) return;
+  builder.selections.chars[id][stage] = v;
+  renderBuilder();
+}
+function adjustEnergy(delta){
+  const current = builder.selections.energy;
+  const maxAdd = DECK_SIZE - builderTotal();
+  const actualDelta = delta > 0 ? Math.min(delta, maxAdd) : Math.max(delta, -current);
+  if(actualDelta === 0) return;
+  builder.selections.energy = current + actualDelta;
+  renderBuilder();
+}
+function adjustRetreatEnergy(delta){
+  const current = builder.selections.retreatEnergy||0;
+  const maxAdd = DECK_SIZE - builderTotal();
+  const actualDelta = delta > 0 ? Math.min(delta, maxAdd) : Math.max(delta, -current);
+  if(actualDelta === 0) return;
+  builder.selections.retreatEnergy = current + actualDelta;
+  renderBuilder();
+}
+function adjustItem(id, delta){
+  const v = builder.selections.items[id] + delta;
+  if(v < 0 || v > 4) return;
+  if(builderTotal() + delta > DECK_SIZE) return;
+  builder.selections.items[id] = v;
+  renderBuilder();
+}
+function adjustSpecial(id, delta){
+  const v = builder.selections.specials[id] + delta;
+  if(v < 0 || v > 5) return;
+  if(builderTotal() + delta > DECK_SIZE) return;
+  builder.selections.specials[id] = v;
+  renderBuilder();
+}
+function adjustSupport(id, delta){
+  const v = builder.selections.supports[id] + delta;
+  if(v < 0 || v > 5) return;
+  if(builderTotal() + delta > DECK_SIZE) return;
+  builder.selections.supports[id] = v;
+  renderBuilder();
+}
+
+function randomInt(min, max){
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function autoFillBuilder(){
+  // 各カテゴリの目標枚数を範囲内でランダムに決め、合計がちょうど70枚になるよう微調整する
+  const ranges = {
+    energy:[20,30], retreatEnergy:[7,15],
+    easy:[12,15], normal:[4,12], hard:[2,6], lunatic:[0,5],
+    items:[4,8], specials:[5,12], supports:[5,12],
+  };
+  const targets = {};
+
+  // 1. 霊力エネルギー・交代エネルギーの枚数を先に決める
+  targets.energy = randomInt(ranges.energy[0], ranges.energy[1]);
+  targets.retreatEnergy = randomInt(ranges.retreatEnergy[0], ranges.retreatEnergy[1]);
+
+  // 2. キャラクターカード：easyを先に決め、normal→hard→lunaticの順に「直前の段階より少なくなる」ことを優先しつつ決める
+  //    （直前の段階の最小値を下回ってしまう場合のみ、同数までは許容する）
+  function nextStageCount(range, prevCount){
+    const strictUpper = prevCount - 1;
+    const upper = (strictUpper >= range[0]) ? Math.min(range[1], strictUpper) : Math.min(range[1], prevCount);
+    return randomInt(range[0], Math.max(range[0], upper));
+  }
+  targets.easy = randomInt(ranges.easy[0], ranges.easy[1]);
+  targets.normal = nextStageCount(ranges.normal, targets.easy);
+  targets.hard = nextStageCount(ranges.hard, targets.normal);
+  targets.lunatic = nextStageCount(ranges.lunatic, targets.hard);
+
+  // 3. 持ち物・特殊・サポートの枚数を決める
+  ['items','specials','supports'].forEach(k=>{ targets[k] = randomInt(ranges[k][0], ranges[k][1]); });
+
+  let diff = DECK_SIZE - Object.values(targets).reduce((a,b)=>a+b,0);
+  // まずキャラ以外（エネルギー・持ち物・特殊・サポート）で調整し、それでも埋まらない分だけキャラ段階を調整する
+  const priorityKeys = ['energy','retreatEnergy','items','specials','supports'];
+  const fallbackKeys = ['easy','normal','hard','lunatic'];
+  let guard = 0;
+  while(diff !== 0 && guard < 5000){
+    guard++;
+    const pool = priorityKeys.some(k=> (diff>0 ? targets[k]<ranges[k][1] : targets[k]>ranges[k][0]) ) ? priorityKeys : fallbackKeys;
+    const k = pool[Math.floor(Math.random()*pool.length)];
+    if(diff > 0 && targets[k] < ranges[k][1]){ targets[k]++; diff--; }
+    else if(diff < 0 && targets[k] > ranges[k][0]){ targets[k]--; diff++; }
+  }
+  // 範囲内での調整だけで届かなかった端数は、影響が少ない霊力エネルギーで吸収する
+  if(diff !== 0){ targets.energy += diff; diff = 0; }
+  if(targets.energy < 0) targets.energy = 0;
+
+  // easyの枚数 >= normalの枚数 >= hardの枚数 >= lunaticの枚数 となるよう、大きい方から順に切り詰める（安全策）
+  const beforeOrderTotal = targets.easy + targets.normal + targets.hard + targets.lunatic;
+  if(targets.normal > targets.easy) targets.normal = targets.easy;
+  if(targets.hard > targets.normal) targets.hard = targets.normal;
+  if(targets.lunatic > targets.hard) targets.lunatic = targets.hard;
+  const afterOrderTotal = targets.easy + targets.normal + targets.hard + targets.lunatic;
+  // 切り詰めた分は霊力エネルギーで補い、合計70枚を保つ
+  targets.energy += (beforeOrderTotal - afterOrderTotal);
+
+  // キャラクター：easy→normal→hard→lunaticの順で、前段階を持つキャラから優先的に選ぶ
+  const chars = {}; CHAR_DB.forEach(c=>{ chars[c.id] = { easy:0, normal:0, hard:0, lunatic:0 }; });
+  function fillStage(stage, target, prevStage){
+    const cap = CHAR_STAGE_CAP[stage];
+    const eligibleIds = CHAR_DB.map(c=>c.id).filter(id => !prevStage || chars[id][prevStage] > 0);
+    if(eligibleIds.length === 0) return; // 前段階を持つキャラが誰もいなければ進化先は選べない
+    const weight = {}; eligibleIds.forEach(id=>{ weight[id] = 1; }); // 初期重みは全員1（完全ランダム）
+    let remaining = target;
+    let safety = 0;
+    while(remaining > 0 && safety < 5000){
+      safety++;
+      const pool = eligibleIds.filter(id => chars[id][stage] < cap);
+      if(pool.length === 0) break;
+      const totalWeight = pool.reduce((sum,id)=>sum + weight[id], 0);
+      let r = Math.random() * totalWeight;
+      let picked = pool[pool.length-1];
+      for(const id of pool){
+        r -= weight[id];
+        if(r <= 0){ picked = id; break; }
+      }
+      chars[picked][stage]++;
+      weight[picked] = 10; // 一度選ばれたキャラは、以後このカードの選ばれる確率が10倍になる（重ねがけしない）
+      remaining--;
+    }
+  }
+  fillStage('easy', targets.easy, null);
+  fillStage('normal', targets.normal, 'easy');
+  fillStage('hard', targets.hard, 'normal');
+  fillStage('lunatic', targets.lunatic, 'hard');
+
+  // 万一、対象キャラが足りず狙った枚数まで埋められなかった場合は、その分を霊力エネルギーで補って合計70枚を保証する
+  let actualCharTotal = 0;
+  Object.values(chars).forEach(st=>{ actualCharTotal += st.easy+st.normal+st.hard+st.lunatic; });
+  const plannedCharTotal = targets.easy + targets.normal + targets.hard + targets.lunatic;
+  const shortfall = plannedCharTotal - actualCharTotal;
+  if(shortfall > 0) targets.energy += shortfall;
+
+  // 持ち物・特殊・サポート：各1種類あたりの上限内でランダムに選ぶ
+  function fillRandomCards(dbArr, target, capPerCard){
+    const map = {}; dbArr.forEach(c=>map[c.id]=0);
+    let remaining = target;
+    let safety = 0;
+    while(remaining > 0 && safety < 5000){
+      safety++;
+      const pick = dbArr[Math.floor(Math.random()*dbArr.length)];
+      if(map[pick.id] < capPerCard){ map[pick.id]++; remaining--; }
+    }
+    return map;
+  }
+  const items = fillRandomCards(ITEM_DB, targets.items, 4);
+  const specials = fillRandomCards(SPECIAL_DB, targets.specials, 5);
+  const supports = fillRandomCards(SUPPORT_DB, targets.supports, 5);
+
+  builder.selections = { chars, energy: targets.energy, retreatEnergy: targets.retreatEnergy, items, specials, supports };
+  renderBuilder();
+}
+
+function confirmBuilderDeck(){
+  if(builderTotal() !== DECK_SIZE) return;
+  const deck = compileDeckFromSelections(builder.selections);
+  builder.decks[builder.playerIdx] = deck;
+  if(builder.mode === 'online'){
+    builder = null;
+    clearBuilderDraft();
+    if(netRole === 'host'){
+      onlineHostOwnDeck = deck;
+      if(onlineGuestDeck){
+        startOnlineGame();
+      } else {
+        onlineUI = { phase:'deck-wait' };
+        renderOnlineUI();
+      }
+    } else if(netRole === 'guest'){
+      if(conn && conn.open){ conn.send({ t:'deck', deck: deck }); }
+      onlineUI = { phase:'deck-wait' };
+      renderOnlineUI();
+    }
+    return;
+  }
+  if(builder.mode === 'hotseat' && builder.playerIdx === 0){
+    builder.playerIdx = 1;
+    builder.selections = freshSelections();
+    builder.filterOpen = false;
+    builder.charFilter = { types:[], elements:[], weaknesses:[] };
+    renderBuilder();
+  } else {
+    const mode = builder.mode;
+    const aiDifficulty = builder.aiDifficulty || 'normal';
+    const decksTemplate = builder.decks.map(d=>d.slice());
+    savedMode = mode;
+    savedDecks = decksTemplate;
+    builder = null;
+    clearBuilderDraft();
+    const startingIdx = Math.random() < 0.5 ? 0 : 1;
+    initGame(mode, [shuffle(decksTemplate[0].slice()), shuffle(decksTemplate[1].slice())], startingIdx, aiDifficulty);
+  }
+}
+
+/* =========================================================
+   対戦ロジック
+========================================================= */
+function log(msg){ state.log.push(msg); }
+function lname(n){ return `<span class="log-name">${n}</span>`; }
+function ldmg(n){ return `<span class="log-dmg">${n}ダメージ</span>`; }
+function lheal(n){ return `<span class="log-heal">${n}回復</span>`; }
+function lreduce(n){ return `<span class="log-reduce">${n}軽減</span>`; }
+
+function dealInitialHandWithMulligan(player){
+  for(let attempt=0; attempt<=3; attempt++){
+    if(attempt > 0){
+      player.deck = player.deck.concat(player.hand);
+      player.hand = [];
+      shuffle(player.deck);
+      log(`${player.name}の手札にeasyキャラクターがいないため引き直した（${attempt}回目）。`);
+    }
+    player.hand = [];
+    for(let i=0;i<5;i++){ if(player.deck.length) player.hand.push(player.deck.pop()); }
+    if(player.hand.some(c=>!c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport && (c.cardStage||'easy')==='easy')) return true;
+  }
+  return false;
+}
+
+function ensureCpuOpeningEasyCards(player, minimumEasy=2){
+  const isEasy = c => c && !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport && (c.cardStage || 'easy') === 'easy';
+  let easyCount = player.hand.filter(isEasy).length;
+  while(easyCount < minimumEasy){
+    const easyIndex = player.deck.findIndex(isEasy);
+    if(easyIndex < 0) break;
+    const replacementIndex = player.hand.findIndex(c=>!isEasy(c));
+    if(replacementIndex < 0) break;
+    const easyCard = player.deck.splice(easyIndex,1)[0];
+    const replacedCard = player.hand.splice(replacementIndex,1,easyCard)[0];
+    player.deck.push(replacedCard);
+    easyCount++;
+  }
+  shuffle(player.deck);
+  return easyCount >= minimumEasy;
+}
+
+function initGame(mode, decks, startingIdx, aiDifficulty){
+  const isCpu = mode === 'cpu';
+  const isSpectator = mode === 'spectator';
+  const isOnline = mode === 'online';
+  const firstIdx = (startingIdx === 0 || startingIdx === 1) ? startingIdx : 0;
+  state = {
+    mode: mode,
+    aiDifficulty: aiDifficulty || 'normal',
+    players: [
+      { name: isCpu ? 'あなた' : (isSpectator ? 'CPU-1' : isOnline ? 'ホスト' : 'プレイヤー1'), deck:decks[0], hand:[], discard:[], main:null, bench:[null,null,null], knockouts:0, turnsStarted:0 },
+      { name: isCpu ? 'CPU'   : (isSpectator ? 'CPU-2' : isOnline ? 'ゲスト' : 'プレイヤー2'), deck:decks[1], hand:[], discard:[], main:null, bench:[null,null,null], knockouts:0, turnsStarted:0 },
+    ],
+    turn:firstIdx,
+    log:[],
+    gameOver:false,
+    winner:null,
+    energyAttachedThisTurn:0,
+    itemAttachedThisTurn:false,
+    specialUsedThisTurn:false,
+    retreatUsedThisTurn:false,
+    resignConfirmPending:false,
+    selectedHandIndex:null,
+    forcedSwapPending:null,
+    pendingMoveIndex:null,
+    promotionPending:null,
+    cardChoicePending:null,
+    gapSwapPending:null,
+    evolveChoicePending:null,
+    benchBuffPending:null,
+    logVisible:true,
+  };
+
+  let loserIdx = null;
+  state.players.forEach((p,pi)=>{
+    const ok = dealInitialHandWithMulligan(p);
+    if(!ok && !isAiControlled(pi)) loserIdx = pi;
+  });
+
+  if(loserIdx !== null){
+    log(`${state.players[loserIdx].name}は3回引き直してもeasyキャラクターを引けなかったため敗北！`);
+    endGame(1-loserIdx);
+    return;
+  }
+
+  if(isCpu){
+    const cpu = state.players[1];
+    if(ensureCpuOpeningEasyCards(cpu, 2)){
+      log('CPUの初期手札を調整し、easyキャラクターを2枚以上確保した。');
+    }
+  } else if(isSpectator){
+    state.players.forEach(p=>{ ensureCpuOpeningEasyCards(p, 2); });
+  }
+
+  log(isCpu
+    ? `ゲーム開始。${firstIdx===0?'あなた':'CPU'}が先攻です。手札のキャラクターカードをタップしてメインに出しましょう。`
+    : isSpectator
+      ? `観戦モード開始。${state.players[firstIdx].name}が先攻です。`
+      : `ゲーム開始。${state.players[firstIdx].name}が先攻です。手札のキャラクターカードをタップしてメインに出しましょう。`);
+  render();
+  if((state.mode === 'cpu' && firstIdx === 1) || state.mode === 'spectator'){
+    if(!state.gameOver){ aiActingIdx = firstIdx; aiTakeTurn(); }
+  }
+}
+
+function isHumanTurnNow(){
+  if(!state || state.gameOver) return false;
+  if(state.mode === 'spectator') return false;
+  if(state.disconnected) return false;
+  return getSelfIdx() === state.turn;
+}
+
+function isAiControlled(playerIdx){
+  return (state.mode === 'cpu' && playerIdx === 1) || state.mode === 'spectator';
+}
+
+function processStatusTick(idx, resumeFn){
+  const player = state.players[idx];
+  const inst = player.main;
+  if(!inst || !inst.status) return 'ok';
+
+  if(inst.status.type === 'burn'){
+    const amount = inst.status.amount || 5;
+    inst.hp -= amount;
+    log(`${lname(inst.card.name)}はやけどの${ldmg(amount)}を受けた！`);
+    inst.status.turnsLeft--;
+    const sourceIdx = inst.status.sourcePlayerIdx;
+    if(inst.status.turnsLeft <= 0){ log(`${lname(inst.card.name)}のやけどが治った。`); inst.status = null; }
+    if(inst.hp <= 0){
+      log(`${lname(inst.card.name)}は倒れた…`);
+      player.discard.push(inst.card);
+      player.main = null;
+      if(sourceIdx !== null && sourceIdx !== undefined && state.players[sourceIdx]){
+        const attacker = state.players[sourceIdx];
+        attacker.knockouts = (attacker.knockouts||0) + 1;
+        log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
+        if(attacker.knockouts >= 5){ endGame(sourceIdx); return 'ended'; }
+      }
+      const hasBench = player.bench.some(b=>b!==null);
+      if(hasBench){
+        const pending = triggerPromotion(idx, resumeFn);
+        return pending ? 'pending' : 'ok';
+      }
+      // ベンチが空でも、5体撃破に達していなければ試合は続行する
+    }
+  } else if(inst.status.type === 'regen'){
+    const amount = inst.status.amount || 7;
+    healInstance(inst, amount);
+    log(`${lname(inst.card.name)}は再生の効果でHPを${lheal(amount)}した！`);
+    inst.status.turnsLeft--;
+    if(inst.status.turnsLeft <= 0){ log(`${lname(inst.card.name)}の再生が切れた。`); inst.status = null; }
+  } else if(inst.status.type === 'freeze'){
+    inst.status.turnsLeft--;
+    if(inst.status.turnsLeft <= 0){ log(`${lname(inst.card.name)}の凍結が解けた。`); inst.status = null; }
+  } else if(inst.status.type === 'shield'){
+    inst.status.turnsLeft--;
+    if(inst.status.turnsLeft <= 0){ log(`${lname(inst.card.name)}の結界が消えた。`); inst.status = null; }
+  } else if(inst.status.type === 'curse'){
+    inst.status.turnsLeft--;
+    if(inst.status.turnsLeft <= 0){ log(`${lname(inst.card.name)}の道連れの呪いが解けた。`); inst.status = null; }
+  }
+  return 'ok';
+}
+
+function triggerPromotion(playerIdx, resumeFn){
+  const player = state.players[playerIdx];
+  const isCpuControlled = isAiControlled(playerIdx);
+  if(isCpuControlled){
+    let bestIdx = -1, bestHp = -1;
+    player.bench.forEach((b,i)=>{ if(b && b.hp > bestHp){ bestHp = b.hp; bestIdx = i; } });
+    player.main = player.bench[bestIdx];
+    player.bench[bestIdx] = null;
+    log(`${lname(player.main.card.name)}がメインに繰り上がった！`);
+    return false; // 同期的に解決済み（保留なし）
+  }
+  state.promotionPending = { playerIdx, resumeFn };
+  log(`${lname(player.name)}はベンチから繰り上げるキャラを選んでください。`);
+  render();
+  return true; // 保留中
+}
+function resolvePromotion(benchIndex){
+  if(!state.promotionPending) return;
+  const pending = state.promotionPending;
+  const player = state.players[pending.playerIdx];
+  if(!player.bench[benchIndex]) return;
+  player.main = player.bench[benchIndex];
+  player.bench[benchIndex] = null;
+  log(`${lname(player.main.card.name)}がメインに繰り上がった！`);
+  state.promotionPending = null;
+  const fn = pending.resumeFn;
+  if(fn){ fn(); } else { render(); }
+}
+
+function hasAnyCharacter(player){
+  return !!player.main || player.bench.some(b=>b !== null);
+}
+
+function checkCharacterPresenceCondition(idx){
+  const current = state.players[idx];
+  const opponent = state.players[1-idx];
+
+  if((current.turnsStarted||0) >= 1 && !hasAnyCharacter(current)){
+    log(`${current.name}はメインにもベンチにもキャラクターがいないため敗北した！`);
+    endGame(1-idx);
+    return true;
+  }
+  if((opponent.turnsStarted||0) >= 1 && !hasAnyCharacter(opponent)){
+    log(`${opponent.name}はメインにもベンチにもキャラクターがいないため敗北した！`);
+    endGame(idx);
+    return true;
+  }
+  return false;
+}
+
+function startTurn(idx){
+  state.turn = idx;
+  if(checkCharacterPresenceCondition(idx)) return;
+  continueStartTurnAfterStatus(idx);
+}
+
+function processFieldPassives(player, idx){
+  const fielded = [player.main, ...player.bench].filter(Boolean);
+  fielded.forEach(inst=>{
+    const passive = inst.card.passive;
+    if(!passive) return;
+    if(passive.type === 'selfHealPerTurn'){
+      const before = inst.hp;
+      healInstance(inst, passive.amount);
+      if(inst.hp > before) log(`${lname(inst.card.name)}は自分の能力でHPを${lheal(inst.hp-before)}した！`);
+    }
+    if(passive.type === 'finisherLowHp' && idx !== undefined && inst === player.main){
+      const opponent = state.players[1-idx];
+      const targets = [];
+      if(opponent.main && opponent.main.hp > 0 && opponent.main.hp <= passive.threshold) targets.push({ inst:opponent.main, isMain:true });
+      opponent.bench.forEach((b,i)=>{ if(b && b.hp > 0 && b.hp <= passive.threshold) targets.push({ inst:b, isMain:false, idx:i }); });
+      targets.forEach(t=>{
+        log(`${lname(inst.card.name)}の特性が発動！ ${lname(t.inst.card.name)}に${ldmg(passive.amount)}！`);
+        if(t.isMain){
+          damageMainAndCheck(opponent, 1-idx, passive.amount, player, idx);
+        } else {
+          damageBenchAndCheck(opponent, t.idx, passive.amount, player, idx);
+        }
+      });
+    }
+  });
+  if(player.main){
+    const mp = player.main.card.passive;
+    if(mp && mp.type === 'chanceAttachEnergyIfMain' && Math.random() < mp.chance){
+      player.main.energy = (player.main.energy||0) + 1;
+      log(`${lname(player.main.card.name)}は自分の能力で霊力エネルギーを1枚つけた！`);
+    }
+    if(mp && mp.type === 'chanceDrawIfMain' && Math.random() < mp.chance){
+      if(player.deck.length){
+        player.hand.push(player.deck.pop());
+        log(`${lname(player.main.card.name)}は自分の能力で山札から1枚引いた！`);
+      }
+    }
+  }
+}
+
+function continueStartTurnAfterStatus(idx){
+  if(checkCharacterPresenceCondition(idx)) return;
+  const player = state.players[idx];
+  if(player.main) player.main.blockedThisTurn = false;
+  player.bench.forEach(b=>{ if(b) b.blockedThisTurn = false; });
+  if(player.retreatLockedTurns > 0){
+    player.retreatLockedTurns--;
+    if(player.retreatLockedTurns <= 0) log(`${lname(player.name)}の交代封じが解けた。`);
+  }
+  if(player.main && player.main.reverseWeaknessTurns > 0){
+    player.main.reverseWeaknessTurns--;
+    if(player.main.reverseWeaknessTurns <= 0) log(`${lname(player.main.card.name)}の弱点逆呪が解けた。`);
+  }
+  if(player.main && player.main.weaknessNegatedTurns > 0){
+    player.main.weaknessNegatedTurns--;
+    if(player.main.weaknessNegatedTurns <= 0) log(`${lname(player.main.card.name)}のお守りの効果が切れた。`);
+  }
+  if(player.deck.length === 0){
+    log(`${player.name}の山札が尽きた…`);
+    endGame(1-idx);
+    return;
+  }
+  const drawn = player.deck.pop();
+  player.hand.push(drawn);
+  log(`--- ${player.name}のターン --- ${drawn.isEnergy ? '霊力エネルギー' : drawn.name}を引いた。`);
+  processFieldPassives(player, idx);
+  state.energyAttachedThisTurn = 0;
+  state.itemAttachedThisTurn = false;
+  state.specialUsedThisTurn = false;
+  state.retreatUsedThisTurn = false;
+  state.resignConfirmPending = false;
+  state.selectedHandIndex = null;
+  state.pendingMoveIndex = null;
+  render();
+  player.turnsStarted = (player.turnsStarted||0) + 1;
+  if((state.mode === 'cpu' && idx === 1) || state.mode === 'spectator'){
+    if(!state.gameOver){ aiActingIdx = idx; aiTakeTurn(); }
+  }
+}
+
+function endTurn(){
+  if(state.gameOver) return;
+  const endingIdx = state.turn;
+  const nextIdx = 1-endingIdx;
+  const endingPlayer = state.players[endingIdx];
+  // 特性による自傷ダメージ（自分のターン終了時、メインにいる場合のみ）
+  if(endingPlayer.main && endingPlayer.main.card.passive && endingPlayer.main.card.passive.type === 'selfDamagePerTurn'){
+    const amount = endingPlayer.main.card.passive.amount;
+    endingPlayer.main.hp -= amount;
+    log(`${lname(endingPlayer.main.card.name)}は自分の特性で${ldmg(amount)}を受けた！`);
+    if(endingPlayer.main.hp <= 0){
+      log(`${lname(endingPlayer.main.card.name)}は倒れた…`);
+      endingPlayer.discard.push(endingPlayer.main.card);
+      endingPlayer.main = null;
+      const hasBench = endingPlayer.bench.some(b=>b!==null);
+      if(hasBench){
+        const pending = triggerPromotion(endingIdx, ()=>{
+          const result2 = processStatusTick(endingIdx, ()=>startTurn(nextIdx));
+          if(result2 === 'ended' || result2 === 'pending') return;
+          startTurn(nextIdx);
+        });
+        if(pending) return;
+      }
+    }
+  }
+  // 状態異常は「かかっている本人のターン終了時」に効果が発動・消滅する
+  const result = processStatusTick(endingIdx, ()=>startTurn(nextIdx));
+  if(result === 'ended' || result === 'pending') return;
+  startTurn(nextIdx);
+}
+
+function endGame(winnerIdx){
+  state.gameOver = true;
+  state.winner = winnerIdx;
+  log(`🎉 ${state.players[winnerIdx].name}の勝利！`);
+  render();
+}
+
+function onResignClick(actingIdx){
+  if(!state || state.gameOver) return;
+  if(!state.resignConfirmPending){
+    state.resignConfirmPending = true;
+    render();
+    return;
+  }
+  // actingIdx はクリックした側（act()経由）から明示的に渡される。
+  // オンライン対戦ではホストが「ゲストの代わりに」この関数を実行するため、
+  // ここで getSelfIdx() を呼ぶとホスト自身の視点になってしまい誤判定するので使わない。
+  const selfIdx = (typeof actingIdx === 'number') ? actingIdx : getSelfIdx();
+  log(`${state.players[selfIdx].name}が投了した。`);
+  endGame(1-selfIdx);
+}
+
+function startCardChoice(player, playerIdx, options){
+  if(options.length === 0) return;
+  if(options.length === 1){
+    const chosen = options[0];
+    player.hand.push(chosen);
+    log(`${lname(player.name)}は山札から「${chosen.name}」を手札に加えた！`);
+    return;
+  }
+  if(isAiControlled(playerIdx)){
+    let bestIdx = 0, bestScore = -1;
+    options.forEach((c,i)=>{ const score = (typeof c.hp === 'number') ? c.hp : 0; if(score > bestScore){ bestScore = score; bestIdx = i; } });
+    const chosen = options[bestIdx];
+    player.hand.push(chosen);
+    options.forEach((c,i)=>{ if(i!==bestIdx) player.deck.push(c); });
+    shuffle(player.deck);
+    log(`${lname(player.name)}は山札から「${chosen.name}」を選んで手札に加えた！`);
+  } else {
+    state.cardChoicePending = { playerIdx, options };
+    render();
+  }
+}
+
+function useChooseFromTwo(player, playerIdx){
+  const isChar = c => !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport;
+  const idxs = player.deck.map((c,i)=>isChar(c)?i:null).filter(i=>i!==null);
+  if(idxs.length === 0){ log(`${lname(player.name)}の山札にキャラクターカードがない。`); return; }
+  shuffle(idxs);
+  const picked = idxs.slice(0, Math.min(3, idxs.length));
+  const sortedDesc = [...picked].sort((a,b)=>b-a);
+  const options = sortedDesc.map(i=>player.deck.splice(i,1)[0]);
+  startCardChoice(player, playerIdx, options);
+}
+
+function useScoutTop3(player, playerIdx){
+  const n = Math.min(3, player.deck.length);
+  if(n === 0){ log(`${lname(player.name)}の山札にカードがない。`); return; }
+  const options = player.deck.splice(player.deck.length-n, n);
+  startCardChoice(player, playerIdx, options);
+}
+
+function resolveCardChoice(chosenIndex){
+  if(!state.cardChoicePending) return;
+  const { playerIdx, options } = state.cardChoicePending;
+  const player = state.players[playerIdx];
+  const chosen = options[chosenIndex];
+  player.hand.push(chosen);
+  options.forEach((c,i)=>{ if(i!==chosenIndex) player.deck.push(c); });
+  shuffle(player.deck);
+  log(`${lname(player.name)}は山札から「${chosen.name}」を選んで手札に加えた！`);
+  state.cardChoicePending = null;
+  render();
+}
+
+function resolveEvolveChoice(optionIndex){
+  if(!state.evolveChoicePending) return;
+  const { card, options } = state.evolveChoicePending;
+  const player = state.players[state.turn];
+  const opt = options[optionIndex];
+  if(!opt) return;
+  const evoTarget = opt.isMain ? player.main : player.bench[opt.benchIdx];
+  if(!evoTarget){ state.evolveChoicePending = null; render(); return; }
+  evolveInstance(evoTarget);
+  evoTarget.blockedThisTurn = true;
+  const idx = player.hand.indexOf(card);
+  if(idx >= 0) player.hand.splice(idx,1);
+  const evolvedHpBonus = stageIdx(evoTarget) * 10;
+  log(`${lname(evoTarget.card.name)}は${STAGE_LABEL[evoTarget.stage]}に進化した！（HP+${evolvedHpBonus}・攻撃+5）`);
+  state.evolveChoicePending = null;
+  state.selectedHandIndex = null;
+  render();
+}
+
+function useGapSwap(player, opponent, playerIdx){
+  const damagedIdxs = opponent.bench.map((b,i)=> (b && b.hp < getMaxHp(b)) ? i : null).filter(i=>i!==null);
+  if(!opponent.main || damagedIdxs.length === 0){
+    log('入れ替えられる対象がいない（相手のベンチにダメージを受けているキャラがいない）。');
+    return;
+  }
+  if(isAiControlled(playerIdx)){
+    let bestIdx = damagedIdxs[0], bestHp = Infinity;
+    damagedIdxs.forEach(i=>{ if(opponent.bench[i].hp < bestHp){ bestHp = opponent.bench[i].hp; bestIdx = i; } });
+    const tmp = opponent.main;
+    opponent.main = opponent.bench[bestIdx];
+    opponent.bench[bestIdx] = tmp;
+    clearStatusOnBenched(tmp);
+    log(`${lname(opponent.name)}の${lname(opponent.main.card.name)}とベンチが入れ替わった！`);
+  } else {
+    state.gapSwapPending = { playerIdx };
+    render();
+  }
+}
+
+function resolveGapSwap(benchIndex){
+  if(!state.gapSwapPending) return;
+  const { playerIdx } = state.gapSwapPending;
+  const opponent = state.players[1-playerIdx];
+  const target = opponent.bench[benchIndex];
+  if(!target || target.hp >= getMaxHp(target)) return;
+  const tmp = opponent.main;
+  opponent.main = target;
+  opponent.bench[benchIndex] = tmp;
+  clearStatusOnBenched(tmp);
+  log(`${lname(opponent.name)}の${lname(opponent.main.card.name)}とベンチが入れ替わった！`);
+  state.gapSwapPending = null;
+  render();
+}
+
+function onHandCardClick(index){
+  if(state.gameOver || state.forcedSwapPending || state.benchBuffPending) return;
+  const player = state.players[state.turn];
+  const card = player.hand[index];
+  if(!card) return;
+
+  if(card.isEnergy || card.isRetreatEnergy || card.isItem){
+    if(state.selectedHandIndex === index){
+      state.selectedHandIndex = null;
+    } else {
+      if(card.isEnergy && state.energyAttachedThisTurn >= 2){ log('このターンは霊力エネルギーを2枚までしか付けられません。'); render(); return; }
+      if(card.isItem && state.itemAttachedThisTurn){ log('このターンはすでに持ち物を使いました。'); render(); return; }
+      state.selectedHandIndex = index;
+      log(card.isEnergy
+        ? '霊力エネルギーを選択した。付ける相手（メインかベンチ）をタップしてください。'
+        : card.isRetreatEnergy
+          ? '交代エネルギーを選択した。付ける相手（メインかベンチ）をタップしてください。'
+          : `「${card.name}」を選択した。持たせる相手（メインかベンチ）をタップしてください。`);
+    }
+    render();
+    return;
+  }
+
+  if(card.isSpecial || card.isSupport){
+    if(card.isSpecial && state.specialUsedThisTurn){ log('このターンはすでに特殊カードを使いました。'); render(); return; }
+    const t = card.effectType;
+
+    if(t === 'forcedSwap'){
+      log(`「${card.name}」を使用`);
+      useForcedSwap();
+      player.hand.splice(index,1);
+      state.specialUsedThisTurn = true;
+      render();
+      return;
+    }
+    if(t === 'chooseFromTwo'){
+      log(`「${card.name}」を使用`);
+      useChooseFromTwo(player, state.turn);
+      player.hand.splice(index,1);
+      state.specialUsedThisTurn = true;
+      render();
+      return;
+    }
+    if(t === 'gapSwap'){
+      log(`「${card.name}」を使用`);
+      useGapSwap(player, state.players[1-state.turn], state.turn);
+      player.hand.splice(index,1);
+      state.specialUsedThisTurn = true;
+      render();
+      return;
+    }
+    if(t === 'scoutTop3'){
+      log(`「${card.name}」を使用`);
+      useScoutTop3(player, state.turn);
+      player.hand.splice(index,1);
+      render();
+      return;
+    }
+    if(t === 'drawCards' || t === 'healMain' || t === 'searchRandomChar' || t === 'searchRandomEasy' || t === 'redrawHand' || t === 'teamShield' || t === 'revealHandCards' || t === 'negateWeaknessSelf' || t === 'halfDamageNext' || t === 'nukeBench' || t === 'kamikakushi'){
+      resolveNoTargetCard(player, card);
+      const actualIndex = player.hand.indexOf(card);
+      if(actualIndex >= 0) player.hand.splice(actualIndex,1);
+      if(card.isSpecial) state.specialUsedThisTurn = true;
+      render();
+      return;
+    }
+    // 対象選択が必要なカード（自分側 or 敵側）
+    if(state.selectedHandIndex === index){
+      state.selectedHandIndex = null;
+    } else {
+      if(t === 'energyPlus' && !player.main && !player.bench.some(Boolean)){ log('エネルギーを付けるキャラクターがいません。'); render(); return; }
+      state.selectedHandIndex = index;
+      const side = t === 'energyMinus' ? '相手の' : '味方の';
+      log(`「${card.name}」を選択した。${side}対象（メインかベンチ）をタップしてください。`);
+    }
+    render();
+    return;
+  }
+
+  // キャラクターカード：cardStageが'easy'なら新規配置専用、それ以外は対応する前段階を進化させる専用
+  const cardStage = card.cardStage || 'easy';
+
+  if(cardStage === 'easy'){
+    if(!player.main){
+      player.main = { card:card, hp:card.hp, energy:0, item:null, maxHpBonus:0, status:null, stage:'easy', blockedThisTurn:true };
+      player.hand.splice(index,1);
+      log(`${card.name}をメインに出した！（HP${card.hp}）`);
+    } else {
+      const benchIdx = player.bench.findIndex(b=>b===null);
+      if(benchIdx === -1){
+        log('場がいっぱいです（メイン＋ベンチ3体）。');
+        render(); return;
+      }
+      player.bench[benchIdx] = { card:card, hp:card.hp, energy:0, item:null, maxHpBonus:0, status:null, stage:'easy', blockedThisTurn:true };
+      player.hand.splice(index,1);
+      log(`${card.name}をベンチに出した！（HP${card.hp}）`);
+    }
+  } else {
+    const requiredPrevStage = STAGE_ORDER[STAGE_ORDER.indexOf(cardStage)-1];
+    const canEvolve = c => c && c.card.id === card.id && (c.stage||'easy') === requiredPrevStage && !c.blockedThisTurn;
+
+    const eligibleTargets = [];
+    if(canEvolve(player.main)) eligibleTargets.push({ isMain:true, benchIdx:null });
+    player.bench.forEach((b,i)=>{ if(canEvolve(b)) eligibleTargets.push({ isMain:false, benchIdx:i }); });
+
+    if(eligibleTargets.length === 0){
+      const blockedInstead = (player.main && player.main.card.id===card.id && (player.main.stage||'easy')===requiredPrevStage && player.main.blockedThisTurn)
+        || player.bench.some(b=>b && b.card.id===card.id && (b.stage||'easy')===requiredPrevStage && b.blockedThisTurn);
+      if(blockedInstead){
+        log(`「${card.name}」（${STAGE_LABEL[cardStage]}）：このターンに出したばかり、または進化したばかりのキャラはさらに進化できません。`);
+      } else {
+        log(`「${card.name}」（${STAGE_LABEL[cardStage]}）で進化させられる${STAGE_LABEL[requiredPrevStage]}段階の${card.name}が場にいません。`);
+      }
+      render(); return;
+    }
+
+    const isCpuTurn = isAiControlled(state.turn);
+    if(eligibleTargets.length > 1 && !isCpuTurn){
+      // 進化先候補が複数いる場合、プレイヤーに選んでもらう
+      state.evolveChoicePending = { card, cardStage, options: eligibleTargets };
+      render();
+      return;
+    }
+
+    const chosen = eligibleTargets[0];
+    const evoTarget = chosen.isMain ? player.main : player.bench[chosen.benchIdx];
+    evolveInstance(evoTarget);
+    evoTarget.blockedThisTurn = true;
+    player.hand.splice(index,1);
+    const evolvedHpBonus = stageIdx(evoTarget) * 10;
+    log(`${lname(evoTarget.card.name)}は${STAGE_LABEL[evoTarget.stage]}に進化した！（HP+${evolvedHpBonus}・攻撃+5）`);
+  }
+  state.selectedHandIndex = null;
+  render();
+}
+
+function resolveNoTargetCard(player, card){
+  const t = card.effectType;
+  const useLabel = `「${card.name}」を使用`;
+  if(t === 'drawCards'){
+    let drew = 0;
+    for(let i=0;i<card.amount;i++){ if(player.deck.length){ player.hand.push(player.deck.pop()); drew++; } }
+    log(`${useLabel} → ${drew}枚ドロー`);
+  } else if(t === 'healMain'){
+    if(player.main){
+      healInstance(player.main, card.amount);
+      log(`${useLabel} → ${lname(player.main.card.name)}のHPを${lheal(card.amount)}`);
+    } else {
+      log(`${useLabel} → メインがいないため不発`);
+    }
+  } else if(t === 'searchRandomChar' || t === 'searchRandomEasy'){
+    const isChar = c => !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport;
+    const isEasy = c => isChar(c) && (c.cardStage || 'easy') === 'easy';
+    const filter = t === 'searchRandomEasy' ? isEasy : isChar;
+    const idxs = player.deck.map((c,i)=>filter(c)?i:null).filter(i=>i!==null);
+    if(idxs.length === 0){
+      log(`${useLabel} → ${t === 'searchRandomEasy' ? '山札にeasyキャラクターカードが残っておらず不発' : '山札にキャラクターカードが残っておらず不発'}`);
+    } else {
+      const pick = idxs[Math.floor(Math.random()*idxs.length)];
+      const c = player.deck.splice(pick,1)[0];
+      player.hand.push(c);
+      log(`${useLabel} → 「${c.name}」を手札に加えた`);
+    }
+  } else if(t === 'redrawHand'){
+    // 使用した特殊カード自身は除外し、残りの手札を山札へ戻して同じ枚数を引く。
+    const currentHand = player.hand.filter(c => c !== card);
+    const drawCount = currentHand.length;
+    player.hand = [card];
+    player.deck.push(...currentHand);
+    shuffle(player.deck);
+    let drew = 0;
+    for(let i=0;i<drawCount;i++){
+      if(player.deck.length){ player.hand.push(player.deck.pop()); drew++; }
+    }
+    log(`${useLabel} → 手札を山札に戻して${drew}枚引き直し`);
+  } else if(t === 'teamShield'){
+    const playerIdx = state.players.indexOf(player);
+    const targets = [player.main, ...player.bench].filter(Boolean);
+    targets.forEach(inst => applyStatus(inst, 'shield', playerIdx, card.amount, 2));
+    log(`${useLabel} → ${targets.length ? `キャラ全員に結界（被ダメージ-${card.amount}）` : '場にキャラがおらず不発'}`);
+  } else if(t === 'revealHandCards'){
+    const playerIdx = state.players.indexOf(player);
+    const opponent = state.players[1-playerIdx];
+    const pool = opponent.hand.map((c,i)=>i).filter(i=>!opponent.hand[i]._revealedToPlayerIdx || opponent.hand[i]._revealedToPlayerIdx !== playerIdx);
+    shuffle(pool);
+    const targetIdxs = pool.slice(0, Math.min(card.amount, opponent.hand.length));
+    const revealed = [];
+    targetIdxs.forEach(i=>{ opponent.hand[i]._revealedToPlayerIdx = playerIdx; revealed.push(opponent.hand[i].name); });
+    log(`${useLabel} → ${revealed.length ? `${lname(opponent.name)}の手札${revealed.length}枚を確認（${revealed.join('、')}）` : `${lname(opponent.name)}の手札は空だった`}`);
+  } else if(t === 'negateWeaknessSelf'){
+    if(player.main){
+      player.main.weaknessNegatedTurns = Math.max(player.main.weaknessNegatedTurns||0, 1);
+      log(`${useLabel} → ${lname(player.main.card.name)}は1ターンの間、弱点が無効化された`);
+    } else {
+      log(`${useLabel} → メインがいないため不発`);
+    }
+  } else if(t === 'halfDamageNext'){
+    if(player.main){
+      player.main.halfDamageNext = true;
+      log(`${useLabel} → ${lname(player.main.card.name)}は次に受けるダメージが半分になる`);
+    } else {
+      log(`${useLabel} → メインがいないため不発`);
+    }
+  } else if(t === 'nukeBench'){
+    const playerIdx = state.players.indexOf(player);
+    const opponent = state.players[1-playerIdx];
+    const hitNames = [];
+    opponent.bench.forEach((b,i)=>{
+      if(!b) return;
+      hitNames.push(b.card.name);
+      b.hp -= card.amount;
+      if(b.hp <= 0){
+        log(`${lname(b.card.name)}は倒れた…`);
+        opponent.discard.push(b.card);
+        opponent.bench[i] = null;
+        player.knockouts = (player.knockouts||0) + 1;
+        log(`（${lname(player.name)}の撃破数: ${player.knockouts}/5）`);
+      }
+    });
+    log(`${useLabel} → ${hitNames.length ? `${lname(opponent.name)}のベンチ全員に${card.amount}ダメージ（${hitNames.join('、')}）` : `${lname(opponent.name)}のベンチは空だった`}`);
+    if(player.knockouts >= 5){ endGame(playerIdx); }
+  } else if(t === 'kamikakushi'){
+    const validIdxs = player.bench.map((b,i)=> (b && b.hp >= getMaxHp(b)/2) ? i : null).filter(i=>i!==null);
+    if(validIdxs.length === 0){
+      log(`${useLabel} → HPが半分以上のベンチキャラがおらず不発`);
+    } else {
+      const idx = validIdxs[Math.floor(Math.random()*validIdxs.length)];
+      const inst = player.bench[idx];
+      const stage = inst.stage || 'easy';
+      const baseCard = inst.card;
+      const mkCard = (st) => ({...baseCard, isEnergy:false, isItem:false, isSpecial:false, isSupport:false, cardStage:st});
+      const returnedStages = [];
+      if(stage === 'normal'){
+        player.deck.push(mkCard('easy'));
+        player.deck.push(mkCard('normal'));
+        returnedStages.push('easy','normal');
+      } else {
+        player.deck.push(mkCard(stage));
+        returnedStages.push(stage);
+      }
+      player.bench[idx] = null;
+      shuffle(player.deck);
+      log(`${useLabel} → ${lname(inst.card.name)}（${returnedStages.map(s=>STAGE_LABEL[s]).join('・')}）を山札に戻した`);
+    }
+  }
+}
+
+function useForcedSwap(afterStatus, resumeEndTurn){
+  const userIdx = state.turn;
+  const opponentIdx = 1-userIdx;
+  const opponent = state.players[opponentIdx];
+  if(!opponent.main){ log('相手にメインがいないため入れ替えは不発だった。'); return; }
+  const hasBench = opponent.bench.some(b=>b!==null);
+  if(!hasBench){ log('相手のベンチが空のため入れ替えは不発だった。'); return; }
+  if(isAiControlled(opponentIdx)){
+    let bestIdx=-1, bestHp=-1;
+    opponent.bench.forEach((b,i)=>{ if(b && b.hp>bestHp){ bestHp=b.hp; bestIdx=i; } });
+    const tmp = opponent.main;
+    opponent.main = opponent.bench[bestIdx];
+    opponent.bench[bestIdx] = tmp;
+    clearStatusOnBenched(tmp);
+    log(`${lname(opponent.name)}のメインとベンチが入れ替わった！（${lname(opponent.main.card.name)}がメインに）`);
+    if(afterStatus && opponent.main && opponent.main.hp > 0){
+      applyStatus(opponent.main, afterStatus, userIdx);
+    }
+  } else {
+    state.forcedSwapPending = { playerIdx: opponentIdx, afterStatus: afterStatus||null, afterStatusSource: userIdx, resumeEndTurn: !!resumeEndTurn };
+    log(`${lname(opponent.name)}はメインと入れ替えるベンチのキャラを選んでください。`);
+  }
+}
+
+function resolveForcedSwap(benchIndex){
+  if(!state.forcedSwapPending) return;
+  const pending = state.forcedSwapPending;
+  const player = state.players[pending.playerIdx];
+  if(!player.bench[benchIndex]) return;
+  const tmp = player.main;
+  player.main = player.bench[benchIndex];
+  player.bench[benchIndex] = tmp;
+  clearStatusOnBenched(tmp);
+  log(`${lname(player.main.card.name)}とメインが入れ替わった！`);
+  if(pending.afterStatus && player.main && player.main.hp > 0){
+    applyStatus(player.main, pending.afterStatus, pending.afterStatusSource);
+  }
+  const shouldEndTurn = pending.resumeEndTurn;
+  state.forcedSwapPending = null;
+  if(shouldEndTurn){ endTurn(); } else { render(); }
+}
+
+function onTargetClick(targetKey){
+  if(state.selectedHandIndex === null) return;
+  const player = state.players[state.turn];
+  const idx = state.selectedHandIndex;
+  const card = player.hand[idx];
+  if(!card){ state.selectedHandIndex = null; return; }
+  const instance = targetKey === 'main' ? player.main : player.bench[parseInt(targetKey.slice(5),10)];
+  if(!instance){ log('そこにはキャラクターがいません。'); render(); return; }
+
+  if(card.isEnergy){
+    instance.energy++;
+    state.energyAttachedThisTurn++;
+    log(`${lname(instance.card.name)}に霊力エネルギーを1枚つけた（このターン${state.energyAttachedThisTurn}/2枚、現在${instance.energy}枚）。`);
+  } else if(card.isRetreatEnergy){
+    instance.retreatEnergy = (instance.retreatEnergy||0) + 1;
+    log(`${lname(instance.card.name)}に交代エネルギーを1枚つけた（現在${instance.retreatEnergy}枚）。`);
+  } else if(card.isItem){
+    if(instance.item){
+      player.discard.push(instance.item);
+      log(`${lname(instance.item.name)}を外した。`);
+    }
+    instance.item = card;
+    if(card.effect.hp){
+      instance.maxHpBonus = (instance.maxHpBonus||0) + card.effect.hp;
+      instance.hp += card.effect.hp;
+    }
+    state.itemAttachedThisTurn = true;
+    log(`${lname(instance.card.name)}に「${card.name}」を持たせた！（${card.desc}）`);
+  } else if(card.isSpecial || card.isSupport){
+    const useLabel = `「${card.name}」を使用`;
+    if(card.effectType === 'healAny'){
+      healInstance(instance, card.amount);
+      log(`${useLabel} → ${lname(instance.card.name)}のHPを${lheal(card.amount)}`);
+    } else if(card.effectType === 'energyPlus'){
+      instance.energy += card.amount;
+      log(`${useLabel} → ${lname(instance.card.name)}にエネルギー${card.amount}個追加`);
+    } else if(card.effectType === 'cureStatus'){
+      if(instance.status){
+        const statusLabel = instance.status.type==='burn'?'やけど':instance.status.type==='freeze'?'凍結':instance.status.type==='regen'?'再生':instance.status.type==='curse'?'道連れの呪い':'結界';
+        log(`${useLabel} → ${lname(instance.card.name)}の${statusLabel}を解除`);
+        instance.status = null;
+      } else {
+        log(`${useLabel} → ${lname(instance.card.name)}には状態異常がなく不発`);
+      }
+    }
+    if(card.isSpecial) state.specialUsedThisTurn = true;
+  }
+  player.hand.splice(idx,1);
+  state.selectedHandIndex = null;
+  render();
+}
+
+function onEnemyTargetClick(targetKey){
+  if(state.selectedHandIndex === null) return;
+  const player = state.players[state.turn];
+  const opponent = state.players[1-state.turn];
+  const idx = state.selectedHandIndex;
+  const card = player.hand[idx];
+  if(!card || card.effectType !== 'energyMinus') return;
+  const instance = targetKey === 'main' ? opponent.main : opponent.bench[parseInt(targetKey.slice(5),10)];
+  if(!instance){ log('そこにはキャラクターがいません。'); render(); return; }
+  const before = instance.energy;
+  instance.energy = Math.max(0, instance.energy-1);
+  log(`「${card.name}」を使用 → ${lname(instance.card.name)}のエネルギーを1個減少（${before}→${instance.energy}）`);
+  state.specialUsedThisTurn = true;
+  player.hand.splice(idx,1);
+  state.selectedHandIndex = null;
+  render();
+}
+
+function clearStatusOnBenched(instance){
+  if(instance && instance.status){
+    log(`${lname(instance.card.name)}はベンチに戻り、状態異常が解除された。`);
+    instance.status = null;
+  }
+}
+
+function retreatSwap(benchIndex){
+  if(state.gameOver) return;
+  if(state.retreatUsedThisTurn){ log('このターンはすでに入れ替えを行いました。'); render(); return; }
+  const player = state.players[state.turn];
+  if((player.retreatLockedTurns||0) > 0){ log('交代を封じられていて入れ替えができない！'); render(); return; }
+  if(!player.bench[benchIndex]) return;
+  if(player.main){
+    if(!player.main.retreatEnergy || player.main.retreatEnergy <= 0){
+      log('メインに交代エネルギーがついていないため入れ替えができない。');
+      render();
+      return;
+    }
+    player.main.retreatEnergy--;
+    const tmp = player.main;
+    player.main = player.bench[benchIndex];
+    player.bench[benchIndex] = tmp;
+    clearStatusOnBenched(tmp);
+    log(`${player.main.card.name}とメインを交代した！`);
+  } else {
+    player.main = player.bench[benchIndex];
+    player.bench[benchIndex] = null;
+    log(`${player.main.card.name}をメインに繰り上げた！`);
+  }
+  state.retreatUsedThisTurn = true;
+  render();
+}
+
+function calcWeaknessBonus(weaknessArr, attackerTags){
+  const tagSet = new Set(attackerTags);
+  let matches = 0;
+  (weaknessArr||[]).forEach(w=>{ if(tagSet.has(w)) matches++; });
+  return Math.min(matches, 2) * 30; // 弱点1個:+30、2個:+60
+}
+
+function healInstance(instance, amount){
+  const maxHp = getMaxHp(instance);
+  instance.hp = Math.min(maxHp, instance.hp + amount);
+}
+
+function applyStatus(instance, statusType, sourceIdx, amountOverride, turnsOverride){
+  let type = statusType;
+  if(type === 'random'){ type = Math.random() < 0.5 ? 'burn' : 'freeze'; }
+
+  const owner = findInstanceOwner(instance);
+  if(owner && owner.main !== instance && owner.bench.includes(instance)){
+    // ベンチにいるキャラは状態異常を受け付けない（メインに戻らない限り無効）
+    return;
+  }
+
+  const harmfulStatusTypes = ['burn','freeze','curse'];
+  const targetPassive = instance.card.passive;
+  if(targetPassive && targetPassive.type === 'statusImmune' && harmfulStatusTypes.includes(type)){
+    log(`${lname(instance.card.name)}は状態異常を受け付けない！`);
+    return;
+  }
+  if(targetPassive && targetPassive.type === 'statusImmuneType' && targetPassive.statusType === type){
+    log(`${lname(instance.card.name)}は${type==='burn'?'やけど':'凍結'}状態にならない！`);
+    return;
+  }
+
+  let amount, turns;
+  if(type === 'burn'){ amount = amountOverride || 20; turns = turnsOverride || 1; }
+  else if(type === 'regen'){ amount = amountOverride || 15; turns = turnsOverride || 1; }
+  else if(type === 'freeze'){ turns = turnsOverride || 1; }
+  else if(type === 'shield'){ amount = amountOverride || 20; turns = turnsOverride || 1; }
+  else if(type === 'curse'){ amount = amountOverride || 40; turns = turnsOverride || 1; }
+  instance.status = { type, amount, turnsLeft: turns, sourcePlayerIdx: sourceIdx };
+  const labelMap = { burn:'やけど', freeze:'凍結', regen:'再生', shield:'結界', curse:'道連れの呪い' };
+  log(`${lname(instance.card.name)}は${labelMap[type]}状態になった！`);
+}
+
+function checkDeathCurseRetaliation(instance, deceasedPlayerIdx){
+  if(!instance.status || instance.status.type !== 'curse') return;
+  const amount = instance.status.amount || 40;
+  const attackerIdx = 1-deceasedPlayerIdx;
+  const attacker = state.players[attackerIdx];
+  if(!attacker.main) return;
+  attacker.main.hp -= amount;
+  log(`${lname(instance.card.name)}の道連れの呪いが発動！ ${lname(attacker.main.card.name)}に${ldmg(amount)}！`);
+  if(attacker.main.hp <= 0){
+    log(`${lname(attacker.main.card.name)}は倒れた…`);
+    attacker.discard.push(attacker.main.card);
+    attacker.main = null;
+    const deceasedPlayer = state.players[deceasedPlayerIdx];
+    deceasedPlayer.knockouts = (deceasedPlayer.knockouts||0) + 1;
+    log(`（${lname(deceasedPlayer.name)}の撃破数: ${deceasedPlayer.knockouts}/5）`);
+    if(deceasedPlayer.knockouts >= 5){ endGame(deceasedPlayerIdx); return; }
+    const promoIdx = attacker.bench.findIndex(b=>b!==null);
+    if(promoIdx >= 0){
+      attacker.main = attacker.bench[promoIdx];
+      attacker.bench[promoIdx] = null;
+      log(`${lname(attacker.main.card.name)}がメインに繰り上がった！`);
+    }
+  }
+}
+
+function damageEnemyBench(opponent, attackerPlayer, amount, filterType, filterFn){
+  opponent.bench.forEach((b,i)=>{
+    if(!b) return;
+    if(filterType && b.card.type !== filterType) return;
+    if(filterFn && !filterFn(b)) return;
+    if(b.item && b.item.effect.benchInvulnerable){
+      log(`${lname(b.card.name)}（ベンチ）は結界に守られてダメージを受けなかった。`);
+      return;
+    }
+    b.hp -= amount;
+    log(`${lname(b.card.name)}（ベンチ）に${ldmg(amount)}！`);
+    if(b.hp <= 0){
+      log(`${lname(b.card.name)}は倒れた…`);
+      opponent.discard.push(b.card);
+      opponent.bench[i] = null;
+      attackerPlayer.knockouts = (attackerPlayer.knockouts||0) + 1;
+      log(`（${lname(attackerPlayer.name)}の撃破数: ${attackerPlayer.knockouts}/5）`);
+    }
+  });
+}
+
+function estimateEffectiveElement(mv, effects, targetInstance){
+  let el = mv.element;
+  const wmeEf = effects.find(ef=>ef.type === 'weaknessMatchElement');
+  if(wmeEf && targetInstance){
+    const elemWeak = (targetInstance.card.weakness||[]).filter(w=>ELEMENT_LIST.includes(w));
+    el = elemWeak.length ? elemWeak[0] : '無';
+  }
+  const randEf = effects.find(ef=>ef.type === 'randomElement');
+  if(randEf){
+    const pool = randEf.pool && randEf.pool.length ? randEf.pool : [mv.element];
+    el = pool[0];
+  }
+  return el;
+}
+
+function computeDamage(instance, opponentInstance, moveIndex, overrideElement, isMainTarget){
+  if(isMainTarget === undefined) isMainTarget = true;
+  const move = instance.card.moves[moveIndex];
+  const element = overrideElement || move.element;
+  const effects = move.effects || [];
+  const atkBonus = (instance.item && instance.item.effect.atk) || 0;
+  let passiveAtkBonus = 0;
+  const attackerPassive = instance.card.passive;
+  if(attackerPassive && attackerPassive.type === 'atkBonusIfAllyPresent'){
+    const owner = findInstanceOwner(instance);
+    if(owner && hasAllyOnField(owner, attackerPassive.allyId)) passiveAtkBonus = attackerPassive.amount;
+  }
+
+  const tags = [instance.card.type, element];
+  effects.forEach(ef=>{ if(ef.type === 'addElement') tags.push(ef.element); });
+  effects.forEach(ef=>{
+    if(ef.type === 'becomeTypeIfWeak' && opponentInstance.card.weakness.includes(ef.targetSpecies)){
+      tags[0] = ef.targetSpecies;
+    }
+  });
+
+  // 基準ダメージ（弱点計算はこの時点の値をもとに行う）
+  let dmg = move.dmg + atkBonus + passiveAtkBonus + stageIdx(instance)*5;
+
+  let weaknessBonus = 0;
+  if(isMainTarget){
+    // 弱点によるダメージ上昇はメインへの攻撃のみで発生し、ベンチは対象外
+    const ignoreWeak = effects.some(ef=>ef.type === 'ignoreWeakness');
+    if(ignoreWeak || opponentInstance.weaknessNegatedTurns > 0){
+      weaknessBonus = 0;
+    } else if(opponentInstance.reverseWeaknessTurns > 0){
+      // 弱点逆呪：無属性以外のわざはすべて弱点扱い（弱点1個分として扱う）
+      weaknessBonus = (element !== '無') ? 30 : 0;
+    } else {
+      weaknessBonus = calcWeaknessBonus(opponentInstance.card.weakness, tags);
+    }
+    if(opponentInstance.item && opponentInstance.item.effect.negateWeakness) weaknessBonus = 0;
+    dmg += weaknessBonus;
+  }
+
+  // 追加効果（bonusVsType・bonusIfStatusなど）によるダメージは基準ダメージ＋弱点分の後に加算する
+  effects.forEach(ef=>{
+    if(ef.type === 'bonusVsType' && opponentInstance.card.type === ef.targetType) dmg += ef.amount;
+    if(ef.type === 'bonusIfStatus' && opponentInstance.status && opponentInstance.status.type === ef.statusType) dmg += ef.amount;
+    if(ef.type === 'bonusIfFullHp' && opponentInstance.hp >= getMaxHp(opponentInstance)) dmg += ef.amount;
+    if(ef.type === 'bonusIfSelfFullHp' && instance.hp >= getMaxHp(instance)) dmg += ef.amount;
+    if(ef.type === 'flatBonusDamage') dmg += ef.amount;
+    if(ef.type === 'bonusIfWeakness' && opponentInstance.card.weakness.includes(ef.targetWeakness)) dmg += ef.amount;
+    if(ef.type === 'bonusIfOpponentHigherHp' && opponentInstance.hp > instance.hp) dmg += ef.amount;
+    if(ef.type === 'bonusIfOpponentHpAtLeast' && opponentInstance.hp >= ef.threshold) dmg += ef.amount;
+  });
+
+  if(instance.status && instance.status.type === 'freeze'){ dmg = Math.round(dmg * 0.75); }
+  const defenderPassive = opponentInstance.card.passive;
+  if(defenderPassive && defenderPassive.type === 'damageReductionFraction'){
+    dmg = Math.round(dmg * defenderPassive.fraction);
+  }
+  let reduced = 0;
+  if(opponentInstance.status && opponentInstance.status.type === 'shield'){
+    reduced = Math.min(dmg, opponentInstance.status.amount);
+    dmg -= reduced;
+  }
+  const bonusFracPassive = instance.card.passive;
+  if(bonusFracPassive && bonusFracPassive.type === 'chanceBonusDamageFraction' && Math.random() < bonusFracPassive.chance){
+    dmg += Math.round(dmg * bonusFracPassive.fraction);
+  }
+  let halved = false;
+  if(opponentInstance.halfDamageNext){
+    dmg = Math.round(dmg / 2);
+    halved = true;
+  }
+  return { dmg, weaknessBonus, move, reduced, halved };
+}
+
+function damageMainAndCheck(defender, defenderIdx, dmg, attacker, attackerIdx){
+  if(!defender.main) return false;
+  defender.main.hp -= dmg;
+  if(defender.main.hp > 0) return false;
+  log(`${lname(defender.main.card.name)}は倒れた…`);
+  defender.discard.push(defender.main.card);
+  const dyingInst = defender.main;
+  defender.main = null;
+  attacker.knockouts = (attacker.knockouts||0) + 1;
+  log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
+  checkDeathCurseRetaliation(dyingInst, defenderIdx);
+  if(attacker.knockouts >= 5){ endGame(attackerIdx); return true; }
+  const hasBench = defender.bench.some(b=>b!==null);
+  if(hasBench){
+    const pending = triggerPromotion(defenderIdx, ()=>endTurn());
+    return pending; // 保留中なら残りのヒットは打ち切り、resolvePromotionがendTurnを呼ぶ
+  }
+  // ベンチが空でも、5体撃破に達していなければ試合は続行する
+  return false;
+}
+function damageBenchAndCheck(defender, benchIdx, dmg, attacker, attackerIdx){
+  const inst = defender.bench[benchIdx];
+  if(!inst) return false;
+  inst.hp -= dmg;
+  if(inst.hp > 0) return false;
+  log(`${lname(inst.card.name)}は倒れた…`);
+  defender.discard.push(inst.card);
+  defender.bench[benchIdx] = null;
+  attacker.knockouts = (attacker.knockouts||0) + 1;
+  log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
+  checkDeathCurseRetaliation(inst, 1-attackerIdx);
+  if(attacker.knockouts >= 5){ endGame(attackerIdx); return true; }
+  return false;
+}
+
+function applyCounterDamage(defendingInstance, attackerPlayer, attackerPlayerIdx, defenderPlayer){
+  if(!defendingInstance || !defendingInstance.item || !defendingInstance.item.effect.counterDamage) return false;
+  if(!attackerPlayer.main) return false;
+  const amt = defendingInstance.item.effect.counterDamage;
+  attackerPlayer.main.hp -= amt;
+  log(`${lname(defendingInstance.card.name)}の「${defendingInstance.item.name}」が反撃！ ${lname(attackerPlayer.main.card.name)}に${ldmg(amt)}！`);
+  if(attackerPlayer.main.hp <= 0){
+    return damageMainAndCheck(attackerPlayer, attackerPlayerIdx, 0, defenderPlayer, 1-attackerPlayerIdx);
+  }
+  return false;
+}
+
+function onUseMove(moveIndex, benchTargetIndex){
+  const player = state.players[state.turn];
+  const opponent = state.players[1-state.turn];
+  if(!player.main) return;
+  const move = player.main.card.moves[moveIndex];
+  if(!move) return;
+  if(move.cost > player.main.energy) return;
+  if(move.targetBench && benchTargetIndex === undefined) return;
+
+  const effects = move.effects || [];
+  const multiHitEf = effects.find(ef=>ef.type === 'multiHitRandom');
+  const benchMultiHitEf = effects.find(ef=>ef.type === 'multiHitBenchRandom');
+  const fixedMultiHitEf = effects.find(ef=>ef.type === 'fixedMultiHitMain');
+
+  if(multiHitEf){
+    if(!opponent.main && !opponent.bench.some(b=>b)) return;
+    player.main.energy -= move.cost;
+    const costMsg = move.cost === 0 ? '消費なし' : `エネルギー${move.cost}枚消費`;
+    log(`${lname(player.main.card.name)}の「${move.name}」（${move.element}属性・${costMsg}）！`);
+    const perHit = multiHitEf.dmgPerHit + stageIdx(player.main) * (multiHitEf.scalePerStage||0);
+    for(let h=0; h<multiHitEf.hits; h++){
+      const pool = [];
+      if(opponent.main) pool.push({ isMain:true });
+      opponent.bench.forEach((b,i)=>{ if(b) pool.push({ isMain:false, idx:i }); });
+      if(pool.length === 0) break;
+      const pick = pool[Math.floor(Math.random()*pool.length)];
+      const dmg = perHit;
+      const targetInst = pick.isMain ? opponent.main : opponent.bench[pick.idx];
+      log(`${lname(targetInst.card.name)}に${ldmg(dmg)}！`);
+      const ended = pick.isMain
+        ? damageMainAndCheck(opponent, 1-state.turn, dmg, player, state.turn)
+        : damageBenchAndCheck(opponent, pick.idx, dmg, player, state.turn);
+      if(ended) return;
+      if(applyCounterDamage(targetInst, player, state.turn, opponent)) return;
+    }
+    endTurn();
+    return;
+  }
+
+  if(benchMultiHitEf){
+    if(!opponent.bench.some(b=>b)) return;
+    player.main.energy -= move.cost;
+    const costMsg = move.cost === 0 ? '消費なし' : `エネルギー${move.cost}枚消費`;
+    log(`${lname(player.main.card.name)}の「${move.name}」（${move.element}属性・${costMsg}）！`);
+    const perHitB = benchMultiHitEf.dmgPerHit + stageIdx(player.main) * (benchMultiHitEf.scalePerStage||0);
+    for(let h=0; h<benchMultiHitEf.hits; h++){
+      const idxs = opponent.bench.map((b,i)=>b?i:null).filter(i=>i!==null);
+      if(idxs.length === 0) break;
+      const pick = idxs[Math.floor(Math.random()*idxs.length)];
+      const dmg = perHitB;
+      const targetInst = opponent.bench[pick];
+      log(`${lname(targetInst.card.name)}に${ldmg(dmg)}！`);
+      const ended = damageBenchAndCheck(opponent, pick, dmg, player, state.turn);
+      if(ended) return;
+      if(applyCounterDamage(targetInst, player, state.turn, opponent)) return;
+    }
+    endTurn();
+    return;
+  }
+
+  if(fixedMultiHitEf){
+    if(!opponent.main) return;
+    player.main.energy -= move.cost;
+    const costMsg = move.cost === 0 ? '消費なし' : `エネルギー${move.cost}枚消費`;
+    for(let h=0; h<fixedMultiHitEf.hits; h++){
+      if(!opponent.main) break;
+      const { dmg, weaknessBonus, halved } = computeDamage(player.main, opponent.main, moveIndex, move.element, true);
+      const targetInst = opponent.main;
+      if(halved){ targetInst.halfDamageNext = false; }
+      log(`${lname(player.main.card.name)}の「${move.name}」${h+1}発目（${move.element}属性・${costMsg}）！ ${lname(opponent.main.card.name)}に${ldmg(dmg)}${weaknessBonus>0?`（弱点+${weaknessBonus}）`:''}`);
+      const ended = damageMainAndCheck(opponent, 1-state.turn, dmg, player, state.turn);
+      if(ended) return;
+      if(applyCounterDamage(targetInst, player, state.turn, opponent)) return;
+    }
+    endTurn();
+    return;
+  }
+
+  let effectiveTargetBench = move.targetBench;
+  let effectiveBenchIdx = benchTargetIndex;
+  const randomTargetEf = effects.find(ef=>ef.type === 'randomBenchOrMain');
+  if(randomTargetEf && !move.targetBench && opponent.main && opponent.bench.some(b=>b) && Math.random() < randomTargetEf.chance){
+    const idxs = opponent.bench.map((b,i)=>b?i:null).filter(i=>i!==null);
+    effectiveBenchIdx = idxs[Math.floor(Math.random()*idxs.length)];
+    effectiveTargetBench = true;
+    log('不思議な力に導かれ、攻撃がベンチへ逸れた！');
+  }
+
+  const targetInstance = effectiveTargetBench ? opponent.bench[effectiveBenchIdx] : opponent.main;
+  if(!targetInstance){ log('対象が見当たらないため不発だった。'); render(); return; }
+
+  player.main.energy -= move.cost;
+
+  let actualElement = move.element;
+  const randEff = effects.find(ef=>ef.type === 'randomElement');
+  if(randEff){
+    const pool = randEff.pool && randEff.pool.length ? randEff.pool : [move.element];
+    actualElement = pool[Math.floor(Math.random()*pool.length)];
+  }
+  const wme = effects.find(ef=>ef.type === 'weaknessMatchElement');
+  if(wme){
+    const elemWeak = (targetInstance.card.weakness||[]).filter(w=>ELEMENT_LIST.includes(w));
+    actualElement = elemWeak.length ? elemWeak[Math.floor(Math.random()*elemWeak.length)] : '無';
+  }
+
+  const { dmg, weaknessBonus, reduced, halved } = computeDamage(player.main, targetInstance, moveIndex, actualElement, !effectiveTargetBench);
+  targetInstance.hp -= dmg;
+  if(halved){ targetInstance.halfDamageNext = false; } // 実際に攻撃を受けた時のみ消費する（プレビュー計算では消費しない）
+
+  const costMsg = move.cost === 0 ? '消費なし' : `エネルギー${move.cost}枚消費`;
+  const multMsg = weaknessBonus > 0 ? `（弱点+${weaknessBonus}）` : '';
+  const elemMsg = (randEff || wme) ? `（${actualElement}属性で発動）` : '';
+  log(`${lname(player.main.card.name)}の「${move.name}」（${actualElement}属性・${costMsg}）！${elemMsg} ${lname(targetInstance.card.name)}に${ldmg(dmg)}${multMsg}`);
+  if(reduced > 0){
+    log(`${lname(targetInstance.card.name)}は結界でダメージを${lreduce(reduced)}した！`);
+  }
+  if(halved){
+    log(`${lname(targetInstance.card.name)}は身代わり札の効果でダメージが半分になった！`);
+  }
+
+  const willKO = targetInstance.hp <= 0;
+
+  // 追加効果の処理
+  effects.forEach(ef=>{
+    if(ef.type === 'selfStatus'){
+      applyStatus(player.main, ef.status, state.turn, ef.amount, ef.turns);
+    } else if(ef.type === 'inflictStatus'){
+      if(targetInstance.hp > 0){
+        applyStatus(targetInstance, ef.status, state.turn, ef.amount, ef.turns);
+      }
+    } else if(ef.type === 'recoil'){
+      player.main.hp -= ef.amount;
+      log(`${lname(player.main.card.name)}は反動で${ldmg(ef.amount)}を受けた！`);
+    } else if(ef.type === 'shield'){
+      applyStatus(player.main, 'shield', state.turn, ef.amount, ef.turns);
+    } else if(ef.type === 'healBench'){
+      const validIdxs = player.bench.map((b,i)=>b?i:null).filter(i=>i!==null);
+      if(validIdxs.length){
+        let bestIdx = validIdxs[0], bestRatio = 2;
+        validIdxs.forEach(i=>{
+          const b = player.bench[i];
+          const bMax = getMaxHp(b);
+          const ratio = b.hp / bMax;
+          if(ratio < bestRatio){ bestRatio = ratio; bestIdx = i; }
+        });
+        healInstance(player.bench[bestIdx], ef.amount);
+        log(`${lname(player.bench[bestIdx].card.name)}のHPを${lheal(ef.amount)}した！`);
+      }
+    } else if(ef.type === 'halfDamageNext'){
+      player.main.halfDamageNext = true;
+      log(`${lname(player.main.card.name)}は次に受けるダメージが半分になる！`);
+    } else if(ef.type === 'healBenchAll'){
+      const all = player.bench.filter(Boolean);
+      all.forEach(b=>healInstance(b, ef.amount));
+      if(all.length) log(`${lname(player.name)}のベンチ全員のHPを${lheal(ef.amount)}した！`);
+    } else if(ef.type === 'benchDamage'){
+      damageEnemyBench(opponent, player, ef.amount, null);
+    } else if(ef.type === 'selfBenchDamage'){
+      const all = player.bench.filter(Boolean);
+      all.forEach(b=>{ b.hp -= ef.amount; });
+      const dead = [];
+      player.bench.forEach((b,i)=>{ if(b && b.hp<=0){ dead.push(i); } });
+      dead.forEach(i=>{
+        const b = player.bench[i];
+        log(`${lname(b.card.name)}は倒れた…`);
+        player.discard.push(b.card);
+        player.bench[i] = null;
+      });
+      if(all.length) log(`${lname(player.name)}は自分のベンチ全員に${ef.amount}ダメージを与えた！`);
+    } else if(ef.type === 'secondaryBenchDamageRandom'){
+      const validIdxs = opponent.bench.map((b,i)=>b?i:null).filter(i=>i!==null);
+      if(validIdxs.length){
+        const pickIdx = validIdxs[Math.floor(Math.random()*validIdxs.length)];
+        const b = opponent.bench[pickIdx];
+        b.hp -= ef.amount;
+        log(`${lname(b.card.name)}に${ldmg(ef.amount)}！`);
+        if(b.hp <= 0){
+          log(`${lname(b.card.name)}は倒れた…`);
+          opponent.discard.push(b.card);
+          opponent.bench[pickIdx] = null;
+          player.knockouts = (player.knockouts||0) + 1;
+          log(`（${lname(player.name)}の撃破数: ${player.knockouts}/5）`);
+        }
+      }
+    } else if(ef.type === 'drawCardsEqualToKnockouts'){
+      const n = Math.min(player.knockouts||0, player.deck.length);
+      let drew = 0;
+      for(let i=0;i<n;i++){ if(player.deck.length){ player.hand.push(player.deck.pop()); drew++; } }
+      log(`${lname(player.name)}は撃破数(${player.knockouts||0})分、${drew}枚引いた。`);
+    } else if(ef.type === 'selfGiveEnergy'){
+      player.main.energy = (player.main.energy||0) + ef.amount;
+      log(`${lname(player.main.card.name)}は自分に霊力エネルギーを${ef.amount}枚つけた！`);
+    } else if(ef.type === 'selfGiveRetreatEnergy'){
+      player.main.retreatEnergy = (player.main.retreatEnergy||0) + ef.amount;
+      log(`${lname(player.main.card.name)}は自分に交代エネルギーを${ef.amount}枚つけた！`);
+    } else if(ef.type === 'benchBonusVsType'){
+      damageEnemyBench(opponent, player, ef.amount, ef.targetType);
+    } else if(ef.type === 'drawCard'){
+      let drew = 0;
+      for(let i=0;i<ef.amount;i++){ if(player.deck.length){ player.hand.push(player.deck.pop()); drew++; } }
+      log(`${lname(player.name)}は山札から${drew}枚引いた。`);
+    } else if(ef.type === 'drawOnKO' && willKO){
+      let drew = 0;
+      for(let i=0;i<ef.amount;i++){ if(player.deck.length){ player.hand.push(player.deck.pop()); drew++; } }
+      log(`撃破ボーナスで${lname(player.name)}は${drew}枚引いた！`);
+    } else if(ef.type === 'selfDamageOnKO' && willKO){
+      player.main.hp -= ef.amount;
+      log(`${lname(player.main.card.name)}は反動で${ldmg(ef.amount)}を受けた！`);
+    } else if(ef.type === 'returnHandToDeck'){
+      if(opponent.hand.length){
+        const ridx = Math.floor(Math.random()*opponent.hand.length);
+        const returned = opponent.hand.splice(ridx,1)[0];
+        opponent.deck.push(returned);
+        shuffle(opponent.deck);
+        log(`${lname(opponent.name)}の手札から「${returned.name}」を山札に戻した！`);
+      }
+    } else if(ef.type === 'preventRetreat'){
+      opponent.retreatLockedTurns = Math.max(opponent.retreatLockedTurns||0, ef.turns);
+      log(`${lname(opponent.name)}は${ef.turns}ターンの間、交代ができなくなった！`);
+    } else if(ef.type === 'revealHandCards'){
+      const pool = [...opponent.hand];
+      const shownNames = [];
+      for(let i=0;i<Math.min(ef.count,pool.length);i++){
+        const ridx = Math.floor(Math.random()*pool.length);
+        shownNames.push(pool.splice(ridx,1)[0].name);
+      }
+      log(shownNames.length ? `${lname(opponent.name)}の手札を覗き見た：${shownNames.join('、')}` : `${lname(opponent.name)}の手札は空だった。`);
+    } else if(ef.type === 'discardRandomHandCard'){
+      const discardCount = ef.amount || 1;
+      const discardedNames = [];
+      for(let i=0;i<discardCount && opponent.hand.length;i++){
+        const ridx = Math.floor(Math.random()*opponent.hand.length);
+        const discarded = opponent.hand.splice(ridx,1)[0];
+        opponent.discard.push(discarded);
+        discardedNames.push(discarded.name);
+      }
+      if(discardedNames.length){
+        log(`${lname(opponent.name)}の手札から「${discardedNames.join('」「')}」を捨てさせた！`);
+      }
+    } else if(ef.type === 'benchBonusVsWeakness'){
+      damageEnemyBench(opponent, player, ef.amount, null, b=>b.card.weakness.includes(ef.targetWeakness));
+    } else if(ef.type === 'reverseWeakness' && targetInstance.hp > 0){
+      targetInstance.reverseWeaknessTurns = ef.turns;
+      log(`${lname(targetInstance.card.name)}は${ef.turns}ターンの間、無属性以外すべてが弱点になった！`);
+    }
+  });
+
+  if(player.knockouts >= 5){ endGame(state.turn); return; }
+
+  // 反動などで自分のメインが倒れていないか確認
+  if(player.main && player.main.hp <= 0){
+    log(`${lname(player.main.card.name)}は倒れた…`);
+    player.discard.push(player.main.card);
+    const dyingSelfInst = player.main;
+    player.main = null;
+    opponent.knockouts = (opponent.knockouts||0) + 1;
+    log(`（${lname(opponent.name)}の撃破数: ${opponent.knockouts}/5）`);
+    checkDeathCurseRetaliation(dyingSelfInst, state.turn);
+    if(opponent.knockouts >= 5){ endGame(1-state.turn); return; }
+    const hasSelfBench = player.bench.some(b=>b!==null);
+    if(hasSelfBench){
+      const pending = triggerPromotion(state.turn, ()=>endTurn());
+      if(pending) return; // 選択待ち。resolvePromotionがendTurnを呼ぶ
+    }
+    // ベンチが空でも、5体撃破に達していなければ試合は続行する（次のターンにキャラを出せる可能性がある）
+  }
+
+  // 攻撃対象（メイン or ベンチ）が倒れていないか確認
+  if(targetInstance.hp <= 0){
+    log(`${lname(targetInstance.card.name)}は倒れた…`);
+    opponent.discard.push(targetInstance.card);
+    player.knockouts = (player.knockouts||0) + 1;
+    log(`（${lname(player.name)}の撃破数: ${player.knockouts}/5）`);
+    if(player.knockouts >= 5){ endGame(state.turn); return; }
+
+    checkDeathCurseRetaliation(targetInstance, 1-state.turn);
+    if(effectiveTargetBench){
+      opponent.bench[effectiveBenchIdx] = null;
+    } else {
+      opponent.main = null;
+      const hasOppBench = opponent.bench.some(b=>b!==null);
+      if(hasOppBench){
+        const opponentIdx = 1-state.turn;
+        const pending = triggerPromotion(opponentIdx, ()=>finishAttackTurn(player, opponent, effects));
+        if(pending) return; // 選択待ち。resolvePromotionがfinishAttackTurnを呼ぶ
+      }
+      // ベンチが空でも、5体撃破に達していなければ試合は続行する
+    }
+  }
+
+  if(applyCounterDamage(targetInstance, player, state.turn, opponent)) return;
+
+  finishAttackTurn(player, opponent, effects);
+}
+
+function applyBenchBuffToTargets(player, indices, effectType, amount){
+  indices.forEach(i=>{
+    const b = player.bench[i];
+    if(!b) return;
+    if(effectType === 'benchGiveEnergy'){
+      b.energy = (b.energy||0) + amount;
+      log(`${lname(b.card.name)}に霊力エネルギーを${amount}枚つけた！`);
+    } else if(effectType === 'benchGiveRetreatEnergy'){
+      b.retreatEnergy = (b.retreatEnergy||0) + amount;
+      log(`${lname(b.card.name)}に交代エネルギーを${amount}枚つけた！`);
+    }
+  });
+}
+
+function triggerBenchBuff(player, playerIdx, effectType, amount, count, forceRandom){
+  const validIdxs = player.bench.map((b,i)=>b?i:null).filter(i=>i!==null);
+  if(validIdxs.length === 0) return false;
+  const needed = Math.min(count, validIdxs.length);
+  if(forceRandom || isAiControlled(playerIdx) || validIdxs.length <= needed){
+    let targets = validIdxs;
+    if(validIdxs.length > needed){ shuffle(validIdxs); targets = validIdxs.slice(0, needed); }
+    applyBenchBuffToTargets(player, targets, effectType, amount);
+    return false;
+  }
+  state.benchBuffPending = { playerIdx, effectType, amount, count: needed, chosen: [] };
+  log(`${lname(player.name)}は対象を${needed}体選んでください。`);
+  render();
+  return true;
+}
+
+function resolveBenchBuffChoice(benchIndex){
+  if(!state.benchBuffPending) return;
+  const pending = state.benchBuffPending;
+  const player = state.players[pending.playerIdx];
+  if(!player.bench[benchIndex]) return;
+  if(pending.chosen.includes(benchIndex)) return;
+  pending.chosen.push(benchIndex);
+  applyBenchBuffToTargets(player, [benchIndex], pending.effectType, pending.amount);
+  if(pending.chosen.length >= pending.count){
+    state.benchBuffPending = null;
+    endTurn();
+  } else {
+    render();
+  }
+}
+
+function finishAttackTurn(player, opponent, effects){
+  // selfSwapAfter：自分のベンチと自動で入れ替わる
+  if(effects.some(ef=>ef.type === 'selfSwapAfter') && player.main){
+    const bi = player.bench.findIndex(b=>b!==null);
+    if(bi >= 0){
+      const tmp = player.main;
+      player.main = player.bench[bi];
+      player.bench[bi] = tmp;
+      clearStatusOnBenched(tmp);
+      log(`${lname(player.main.card.name)}とメインが入れ替わった！`);
+    }
+  }
+
+  // forcedSwapThenStatus：相手に入れ替えを強制し、その後で状態異常を付与
+  const fsEf = effects.find(ef=>ef.type === 'forcedSwapThenStatus');
+  if(fsEf && opponent.main){
+    useForcedSwap(fsEf.status, true);
+    if(state.forcedSwapPending) return; // 相手の選択待ち。resolveForcedSwapがendTurnを呼ぶ
+  }
+
+  // benchGiveEnergy／benchGiveRetreatEnergy：ベンチへの付与先を選ぶ（人間なら選択、AIは自動）
+  const bgeEf = effects.find(ef=>ef.type === 'benchGiveEnergy');
+  if(bgeEf){
+    const pending = triggerBenchBuff(player, state.turn, 'benchGiveEnergy', bgeEf.amount||1, bgeEf.count||1, bgeEf.forceRandom);
+    if(pending) return; // 選択待ち。resolveBenchBuffChoiceがendTurnを呼ぶ
+  }
+  const bgreEf = effects.find(ef=>ef.type === 'benchGiveRetreatEnergy');
+  if(bgreEf){
+    const pending = triggerBenchBuff(player, state.turn, 'benchGiveRetreatEnergy', bgreEf.amount||1, bgreEf.count||1, bgreEf.forceRandom);
+    if(pending) return; // 選択待ち。resolveBenchBuffChoiceがendTurnを呼ぶ
+  }
+
+  endTurn();
+}
+
+/* ---- 簡易AI ---- */
+function aiTakeTurn(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    let progressed = true;
+    while(progressed){
+      progressed = false;
+      const charIndices = player.hand
+        .map((c,i)=>(!c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport) ? i : null)
+        .filter(i=>i!==null);
+      for(const idx of charIndices){
+        const card = player.hand[idx];
+        const cardStage = card.cardStage || 'easy';
+        let playable;
+        if(cardStage === 'easy'){
+          playable = !player.main || player.bench.some(b=>b===null);
+        } else {
+          const requiredPrevStage = STAGE_ORDER[STAGE_ORDER.indexOf(cardStage)-1];
+          const canEvolve = inst => inst && inst.card.id === card.id && (inst.stage||'easy') === requiredPrevStage && !inst.blockedThisTurn;
+          playable = canEvolve(player.main) || player.bench.some(b=>canEvolve(b));
+        }
+        if(playable){
+          onHandCardClick(idx);
+          progressed = true;
+          break;
+        }
+      }
+    }
+    aiEnergyStep();
+  }, 600);
+}
+function aiAttachEnergyToMain(player){
+  const idx = player.hand.findIndex(c=>c.isEnergy);
+  if(idx < 0) return false;
+  player.main.energy++;
+  player.hand.splice(idx,1);
+  state.energyAttachedThisTurn++;
+  log(`${player.main.card.name}に霊力エネルギーを1枚つけた（このターン${state.energyAttachedThisTurn}/2枚、現在${player.main.energy}枚）。`);
+  return true;
+}
+function aiAttachRetreatEnergyToMain(player){
+  const idx = player.hand.findIndex(c=>c.isRetreatEnergy);
+  if(idx < 0) return false;
+  player.main.retreatEnergy = (player.main.retreatEnergy||0) + 1;
+  player.hand.splice(idx,1);
+  log(`${player.main.card.name}に交代エネルギーを1枚つけた（現在${player.main.retreatEnergy}枚）。`);
+  return true;
+}
+function aiAttachItemToMain(player){
+  const itemIndices = player.hand.map((c,i)=>c.isItem?i:null).filter(i=>i!==null);
+  if(itemIndices.length === 0) return false;
+  // 状況に応じて優先したい効果の順番を決める
+  const priority = [];
+  if(player.main.card.weakness && player.main.card.weakness.length > 0) priority.push('negateWeakness');
+  if(player.main.hp < getMaxHp(player.main) * 0.5) priority.push('hp');
+  priority.push('atk');
+  priority.push('counterDamage');
+  priority.push('hp');
+  priority.push('benchInvulnerable');
+
+  let idx = itemIndices[0];
+  outer:
+  for(const key of priority){
+    for(const i of itemIndices){
+      if(player.hand[i].effect && player.hand[i].effect[key]){ idx = i; break outer; }
+    }
+  }
+  const card = player.hand[idx];
+  if(player.main.item){ player.discard.push(player.main.item); }
+  player.main.item = card;
+  if(card.effect.hp){ player.main.maxHpBonus = (player.main.maxHpBonus||0) + card.effect.hp; player.main.hp += card.effect.hp; }
+  player.hand.splice(idx,1);
+  state.itemAttachedThisTurn = true;
+  log(`${player.main.card.name}に「${card.name}」を持たせた！（${card.desc}）`);
+  return true;
+}
+function aiEnergyStep(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    if(player.main && state.energyAttachedThisTurn < 2 && player.main.energy < 4){
+      aiAttachEnergyToMain(player);
+      if(state.energyAttachedThisTurn < 2 && player.main.energy < 4){
+        aiAttachEnergyToMain(player);
+      }
+    }
+    if(player.main && (player.main.retreatEnergy||0) < 1){
+      aiAttachRetreatEnergyToMain(player);
+    }
+    aiItemStep();
+  }, 600);
+}
+function aiItemStep(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    if(player.main && !state.itemAttachedThisTurn && !player.main.item){
+      aiAttachItemToMain(player);
+    }
+    aiSupportStep();
+  }, 600);
+}
+function aiSupportStep(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    const opponent = state.players[1-aiActingIdx];
+    // サポートカードは無制限に使えるので、使えるものは一通り使う
+    let progressed = true;
+    while(progressed){
+      progressed = false;
+      const supportIndices = player.hand.map((c,i)=>c.isSupport?i:null).filter(i=>i!==null);
+      for(const idx of supportIndices){
+        const card = player.hand[idx];
+        const t = card.effectType;
+        if(t === 'healMain' && player.main && player.main.hp >= getMaxHp(player.main)) continue; // 満タンなら他を探す
+        if(t==='drawCards' || t==='healMain' || t==='searchRandomChar' || t==='searchRandomEasy'){
+          resolveNoTargetCard(player, card);
+          player.hand.splice(idx,1);
+          progressed = true;
+          break;
+        } else if(t === 'cureStatus' && player.main && player.main.status){
+          player.main.status = null;
+          player.hand.splice(idx,1);
+          log(`「${card.name}」を使用 → ${lname(player.main.card.name)}の状態異常を解除`);
+          progressed = true;
+          break;
+        } else if(t === 'revealHandCards'){
+          resolveNoTargetCard(player, card);
+          player.hand.splice(idx,1);
+          progressed = true;
+          break;
+        } else if(t === 'scoutTop3'){
+          useScoutTop3(player, 1);
+          player.hand.splice(idx,1);
+          progressed = true;
+          break;
+        } else if(t === 'negateWeaknessSelf' && player.main && !player.main.weaknessNegatedTurns){
+          resolveNoTargetCard(player, card);
+          player.hand.splice(idx,1);
+          progressed = true;
+          break;
+        }
+      }
+    }
+    aiSpecialStep();
+  }, 500);
+}
+function aiEnergyPlusEnablesLethal(player, opponent, amount){
+  if(!player.main || !opponent.main) return false;
+  return player.main.card.moves.some((mv,mi)=>{
+    if(mv.targetBench) return false;
+    const effects = mv.effects || [];
+    if(effects.some(ef=>['multiHitRandom','multiHitBenchRandom','fixedMultiHitMain','randomBenchOrMain'].includes(ef.type))) return false;
+    if(mv.cost <= player.main.energy) return false; // 既に使えるなら対象外
+    if(mv.cost > player.main.energy + amount) return false; // それでも足りないなら対象外
+    const { dmg } = computeDamage(player.main, opponent.main, mi, mv.element, true);
+    return dmg >= opponent.main.hp;
+  });
+}
+
+function aiSpecialStep(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    if(!state.specialUsedThisTurn){
+      const specialIndices = player.hand.map((c,i)=>c.isSpecial?i:null).filter(i=>i!==null);
+      // トドメを刺せるようになるエネルギー追加カードがあれば最優先で使う
+      specialIndices.sort((a,b)=>{
+        const aCard = player.hand[a], bCard = player.hand[b];
+        const aLethal = aCard.effectType==='energyPlus' && aiEnergyPlusEnablesLethal(player, state.players[1-aiActingIdx], aCard.amount);
+        const bLethal = bCard.effectType==='energyPlus' && aiEnergyPlusEnablesLethal(player, state.players[1-aiActingIdx], bCard.amount);
+        return (bLethal?1:0) - (aLethal?1:0);
+      });
+      for(const idx of specialIndices){
+        const card = player.hand[idx];
+        const t = card.effectType;
+        if(t === 'healMain' && player.main && player.main.hp >= getMaxHp(player.main)) continue; // 満タンなら他のカードを探す
+        if(t === 'drawCards' || t === 'healMain' || t === 'searchRandomChar' || t === 'searchRandomEasy' || t === 'redrawHand'){
+          resolveNoTargetCard(player, card);
+          const actualIndex = player.hand.indexOf(card);
+          if(actualIndex >= 0) player.hand.splice(actualIndex,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'forcedSwap'){
+          log(`「${card.name}」を使用`);
+          useForcedSwap();
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'healAny' && player.main && player.main.hp < getMaxHp(player.main)){
+          healInstance(player.main, card.amount);
+          log(`「${card.name}」を使用 → ${lname(player.main.card.name)}のHPを${lheal(card.amount)}`);
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'energyPlus' && player.main){
+          player.main.energy += card.amount;
+          log(`「${card.name}」を使用 → ${lname(player.main.card.name)}にエネルギー${card.amount}個追加`);
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'energyMinus'){
+          const opponent = state.players[1-aiActingIdx];
+          if(opponent.main && opponent.main.energy > 0){
+            const before = opponent.main.energy;
+            opponent.main.energy = Math.max(0, opponent.main.energy-1);
+            log(`「${card.name}」を使用 → ${lname(opponent.main.card.name)}のエネルギーを1個減少（${before}→${opponent.main.energy}）`);
+            player.hand.splice(idx,1);
+            state.specialUsedThisTurn = true;
+            break;
+          }
+        } else if(t === 'teamShield'){
+          resolveNoTargetCard(player, card);
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'chooseFromTwo'){
+          log(`「${card.name}」を使用`);
+          useChooseFromTwo(player, 1);
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        } else if(t === 'gapSwap'){
+          const opponent = state.players[1-aiActingIdx];
+          const hasDamagedBench = opponent.bench.some(b=>b && b.hp < getMaxHp(b));
+          if(opponent.main && hasDamagedBench){
+            log(`「${card.name}」を使用`);
+            useGapSwap(player, opponent, 1);
+            player.hand.splice(idx,1);
+            state.specialUsedThisTurn = true;
+            break;
+          }
+        } else if(t === 'nukeBench'){
+          const opponent = state.players[1-aiActingIdx];
+          if(opponent.bench.some(b=>b)){
+            resolveNoTargetCard(player, card);
+            player.hand.splice(idx,1);
+            state.specialUsedThisTurn = true;
+            break;
+          }
+        } else if(t === 'kamikakushi'){
+          const hasValidTarget = player.bench.some(b=>b && b.hp >= getMaxHp(b)/2);
+          if(hasValidTarget){
+            resolveNoTargetCard(player, card);
+            player.hand.splice(idx,1);
+            state.specialUsedThisTurn = true;
+            break;
+          }
+        } else if(t === 'halfDamageNext' && player.main && !player.main.halfDamageNext){
+          resolveNoTargetCard(player, card);
+          player.hand.splice(idx,1);
+          state.specialUsedThisTurn = true;
+          break;
+        }
+      }
+    }
+    aiAttackStep();
+  }, 500);
+}
+function aiPickBestMove(player, opponent){
+  const difficulty = state.aiDifficulty || 'normal';
+  let best = null;
+  const candidates = [];
+  const consider = (candidate) => {
+    candidates.push(candidate);
+    if(!best) { best = candidate; return; }
+    // 撃破できる手を最優先。両方撃破可能／両方不可なら威力の高い方を選ぶ
+    if(candidate.lethal && !best.lethal){ best = candidate; return; }
+    if(!candidate.lethal && best.lethal) return;
+    if(candidate.dmg > best.dmg){ best = candidate; }
+  };
+  player.main.card.moves.forEach((mv,mi)=>{
+    if(mv.cost > player.main.energy) return;
+    const effects = mv.effects || [];
+    const multiHitEf = effects.find(ef=>ef.type === 'multiHitRandom');
+    if(multiHitEf){
+      if(!opponent.main && !opponent.bench.some(b=>b)) return;
+      const perHit = multiHitEf.dmgPerHit + stageIdx(player.main) * (multiHitEf.scalePerStage||0);
+      const estDmg = perHit * multiHitEf.hits;
+      consider({ index:mi, dmg: estDmg, lethal:false });
+      return;
+    }
+    const benchMultiHitEf = effects.find(ef=>ef.type === 'multiHitBenchRandom');
+    if(benchMultiHitEf){
+      if(!opponent.bench.some(b=>b)) return;
+      const perHit = benchMultiHitEf.dmgPerHit + stageIdx(player.main) * (benchMultiHitEf.scalePerStage||0);
+      const estDmg = perHit * benchMultiHitEf.hits;
+      consider({ index:mi, dmg: estDmg, lethal:false });
+      return;
+    }
+    const fixedMultiHitEf = effects.find(ef=>ef.type === 'fixedMultiHitMain');
+    if(fixedMultiHitEf){
+      if(!opponent.main) return;
+      const { dmg } = computeDamage(player.main, opponent.main, mi, mv.element, true);
+      const totalDmg = dmg * fixedMultiHitEf.hits;
+      consider({ index:mi, dmg: totalDmg, lethal: totalDmg >= opponent.main.hp });
+      return;
+    }
+    if(mv.targetBench){
+      // 一番HPが低い（倒しやすい）ベンチを狙う
+      let bi = -1, bestHp = Infinity;
+      opponent.bench.forEach((b,i)=>{ if(b && b.hp < bestHp){ bestHp = b.hp; bi = i; } });
+      if(bi < 0) return;
+      const { dmg } = computeDamage(player.main, opponent.bench[bi], mi, mv.element, false);
+      consider({ index:mi, dmg, benchTarget:bi, lethal: dmg >= opponent.bench[bi].hp });
+      return;
+    }
+    if(!opponent.main) return;
+    // randomBenchOrMain は的中確率を考慮した期待値ベースで比較する
+    const randomTargetEf = effects.find(ef=>ef.type === 'randomBenchOrMain');
+    if(randomTargetEf && opponent.bench.some(b=>b)){
+      const estElement1 = estimateEffectiveElement(mv, effects, opponent.main);
+      const { dmg:mainDmg } = computeDamage(player.main, opponent.main, mi, estElement1, true);
+      let bi = -1, bestHp = Infinity;
+      opponent.bench.forEach((b,i)=>{ if(b && b.hp < bestHp){ bestHp = b.hp; bi = i; } });
+      const benchInst = bi>=0 ? opponent.bench[bi] : null;
+      const estElement2 = benchInst ? estimateEffectiveElement(mv, effects, benchInst) : mv.element;
+      const benchDmg = benchInst ? computeDamage(player.main, benchInst, mi, estElement2, false).dmg : 0;
+      const expected = mainDmg*(1-randomTargetEf.chance) + benchDmg*randomTargetEf.chance;
+      consider({ index:mi, dmg: expected, lethal: mainDmg >= opponent.main.hp && (benchInst ? benchDmg >= benchInst.hp : true) });
+      return;
+    }
+    const estElement = estimateEffectiveElement(mv, effects, opponent.main);
+    const { dmg } = computeDamage(player.main, opponent.main, mi, estElement, true);
+    consider({ index:mi, dmg, lethal: dmg >= opponent.main.hp });
+  });
+  // 「弱い」設定では、たまに最善手ではなくランダムな手を選ぶ（トドメの一撃は逃さない）
+  if(difficulty === 'weak' && candidates.length > 1 && !(best && best.lethal) && Math.random() < 0.35){
+    const pick = candidates[Math.floor(Math.random()*candidates.length)];
+    return pick;
+  }
+  return best;
+}
+
+function aiConsiderRetreat(player){
+  if(!player.main || state.retreatUsedThisTurn) return false;
+  const difficulty = state.aiDifficulty || 'normal';
+  const threshold = difficulty === 'weak' ? 0.15 : (difficulty === 'strong' ? 0.4 : 0.3);
+  const maxHp = getMaxHp(player.main);
+  const ratio = player.main.hp / maxHp;
+  if(ratio > threshold) return false; // まだ十分戦える
+  // ベンチに、より安全（HP割合が高い）なキャラがいれば交代する
+  let bestIdx = -1, bestRatio = ratio;
+  player.bench.forEach((b,i)=>{
+    if(!b) return;
+    const r = b.hp / getMaxHp(b);
+    if(r > bestRatio + 0.15){ bestRatio = r; bestIdx = i; }
+  });
+  if(bestIdx < 0) return false;
+  retreatSwap(bestIdx);
+  return true;
+}
+
+function aiAttackStep(){
+  setTimeout(()=>{
+    if(state.gameOver) return;
+    const player = state.players[aiActingIdx];
+    const opponent = state.players[1-aiActingIdx];
+    if(player.main){
+      aiConsiderRetreat(player);
+    }
+    if(player.main){
+      const best = aiPickBestMove(player, opponent);
+      if(best){ onUseMove(best.index, best.benchTarget); } else { endTurn(); }
+    } else {
+      endTurn();
+    }
+  }, 600);
+}
+
+/* =========================================================
+   描画：メニュー / デッキ編成
+========================================================= */
+function showStartScreen(){
+  cleanupPeer();
+  onlineUI = null;
+  state = null;
+  builder = null;
+  clearBuilderDraft();
+  hideResultModal();
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="table menu-screen">
+      <p>対戦モードを選んでください</p>
+      <div class="controls">
+        <button id="modeCpu">CPU対戦</button>
+        <button id="modeHotseat">2人対戦（ホットシート）</button>
+        <button id="modeOnline">オンライン対戦（合言葉で通信対戦）</button>
+        <button id="modeSpectator">観戦モード（AI同士）</button>
+      </div>
+    </div>`;
+}
+
+function showDifficultyScreen(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="table menu-screen">
+      <p>CPUの強さを選んでください</p>
+      <div class="controls">
+        <button data-ai-difficulty="weak">弱い</button>
+        <button data-ai-difficulty="normal">普通</button>
+        <button data-ai-difficulty="strong">強い</button>
+      </div>
+      <div class="controls" style="margin-top:10px;">
+        <button id="backToMenuFromDifficulty" class="resign">戻る</button>
+      </div>
+    </div>`;
+}
+
+function startSpectatorMode(){
+  const deckA = autoBuildDeck();
+  const deckB = autoBuildDeck();
+  const startingIdx = Math.random() < 0.5 ? 0 : 1;
+  initGame('spectator', [shuffle(deckA), shuffle(deckB)], startingIdx);
+}
+
+
+
+function getCharacterMoveElements(c){
+  const set = new Set();
+  (c.moves || []).forEach(m=>{
+    if(m.element) set.add(m.element);
+    (m.effects || []).forEach(ef=>{
+      if(ef.type === 'addElement' && ef.element) set.add(ef.element);
+      if(ef.type === 'randomElement') (ef.pool || []).forEach(el=>set.add(el));
+    });
+  });
+  return [...set];
+}
+
+function characterMatchesFilter(c, filter){
+  const typeOk = !filter.types.length || filter.types.includes(c.type);
+  const moveElements = getCharacterMoveElements(c);
+  const elementOk = !filter.elements.length || filter.elements.some(el=>moveElements.includes(el));
+  const weaknessOk = !filter.weaknesses.length || filter.weaknesses.some(w=>c.weakness.includes(w));
+  return typeOk && elementOk && weaknessOk;
+}
+
+function uniqueCharacterTypes(){
+  return [...new Set(CHAR_DB.map(c=>c.type))];
+}
+
+function uniqueMoveElements(){
+  const set = new Set();
+  CHAR_DB.forEach(c=>getCharacterMoveElements(c).forEach(el=>set.add(el)));
+  return [...set];
+}
+
+function uniqueWeaknesses(){
+  const set = new Set();
+  CHAR_DB.forEach(c=>(c.weakness||[]).forEach(w=>set.add(w)));
+  return [...set];
+}
+
+function filterButtonGroup(title, key, options, selected){
+  return `<div class="filter-group">
+    <div class="filter-group-title">${title}</div>
+    <div class="filter-options">
+      ${options.map(value=>`
+        <label class="filter-option">
+          <input type="checkbox" data-filter-key="${key}" data-filter-value="${value}" ${selected.includes(value)?'checked':''}>
+          <span>${value}</span>
+        </label>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderBuilderCard(color, name, typeLabel, bodyHtml, controlsHtml, extraInfoHtml){
+  return `<div class="character-select-card builder-card" style="--type-color:${color}">
+    <div class="character-select-top">
+      <div class="character-select-name">${name}</div>
+      <div class="character-select-type">${typeLabel}</div>
+    </div>
+    ${extraInfoHtml||''}
+    <div class="character-select-moves builder-card-body">${bodyHtml}</div>
+    ${controlsHtml}
+  </div>`;
+}
+
+function renderCharacterSection(){
+  const filter = builder.charFilter;
+  const filteredChars = CHAR_DB.filter(c=>characterMatchesFilter(c, filter));
+  const activeFilterCount = filter.types.length + filter.elements.length + filter.weaknesses.length;
+
+  const cards = filteredChars.map(c=>{
+    const stages = builder.selections.chars[c.id];
+    const total = STAGE_ORDER.reduce((a,st)=>a+stages[st],0);
+    const color = TYPE_COLOR[c.type] || '#888';
+    const weak = c.weakness.length ? c.weakness.join('・') : 'なし';
+    const movesHtml = c.moves.map(m=>{
+      const costOrbs = m.cost === 0
+        ? '<span class="orb empty"></span>'
+        : Array.from({length:m.cost},()=>'<span class="orb"></span>').join('');
+      const effectText = effectLabel(m.effects);
+      const detail = `${m.element}属性${effectText}`;
+      return `<div class="character-select-move">
+        <span class="character-select-cost">${costOrbs}</span>
+        <span class="character-select-move-name">${m.name}<span class="character-select-move-desc">${detail}</span></span>
+        <span class="character-select-dmg">${m.dmg}</span>
+      </div>`;
+    }).join('');
+
+    const stageControls = `<div class="character-select-stage-controls builder-card-controls">${STAGE_ORDER.map(st=>{
+      const n = stages[st];
+      return `<div class="character-select-stage">
+        <span class="character-select-stage-label">${STAGE_LABEL[st]}（${CHAR_STAGE_CAP[st]}枚まで）</span>
+        <div class="stepper">
+          <button data-char="${c.id}" data-stage="${st}" data-delta="-1" ${n<=0?'disabled':''}>−</button>
+          <span>${n}</span>
+          <button data-char="${c.id}" data-stage="${st}" data-delta="1" ${n>=CHAR_STAGE_CAP[st]?'disabled':''}>＋</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+
+    const extraInfo = `
+      <div class="character-select-hp">HP ${c.hp}</div>
+      <div class="character-select-weak">弱点: ${weak}</div>
+      ${c.passive ? `<div class="character-select-passive">✨ ${passiveLabel(c)}</div>` : ''}
+      <div class="character-select-count">選択枚数：${total}枚</div>`;
+
+    return renderBuilderCard(color, c.name, c.type, movesHtml, stageControls, extraInfo);
+  }).join('');
+
+  return `
+    <div class="char-section-controls">
+      <button data-open-character-filter>絞り込み${activeFilterCount ? `（${activeFilterCount}条件）` : ''}</button>
+      <span class="filter-result-count">${filteredChars.length} / ${CHAR_DB.length}体</span>
+    </div>
+    <div class="character-card-grid">${cards || '<div class="warn">条件に一致するキャラクターはいません。</div>'}</div>`;
+}
+
+function toggleManualModal(open){
+  manualModalOpen = open;
+  if(state){ render(); }
+  else if(builder){ renderBuilder(); }
+}
+
+function toggleDeckSlotsModal(open){
+  if(!builder) return;
+  builder.slotModalOpen = open;
+  renderBuilder();
+}
+
+function renderDeckSlotsModal(){
+  if(!builder || !builder.slotModalOpen) return '';
+  const slots = loadDeckSlots();
+  const rows = slots.map((entry,i)=>{
+    if(entry){
+      const date = new Date(entry.savedAt);
+      const dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+      return `<div class="deck-slot-row">
+        <div class="deck-slot-info"><b>${entry.label}</b><span class="dr-sub">保存日時：${dateStr}</span></div>
+        <div class="deck-slot-actions">
+          <button data-load-slot="${i}">読み込む</button>
+          <button data-save-slot="${i}" class="resign">上書き保存</button>
+          <button data-delete-slot="${i}" class="resign">削除</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="deck-slot-row empty-slot">
+      <div class="deck-slot-info"><b>スロット${i+1}</b><span class="dr-sub">空き</span></div>
+      <div class="deck-slot-actions">
+        <button data-save-slot="${i}">このデッキを保存</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="builder-modal deck-slots-modal" data-close-slots-backdrop>
+      <div class="builder-modal-box slots-box" data-slots-box>
+        <div class="builder-modal-header">
+          <h3>デッキ保存スロット</h3>
+          <button class="modal-close" data-close-slots>×</button>
+        </div>
+        <p class="manual-content" style="margin:0 0 10px;">今組んでいるデッキをスロットに保存できます。保存内容はブラウザに残るので、更新（F5）しても消えません。</p>
+        ${rows}
+      </div>
+    </div>`;
+}
+
+function analyzeDeckBias(selections){
+  const messages = [];
+  let easy=0,normal=0,hard=0,lunatic=0;
+  const charTypes = {}, weaknessCount = {}, elementCount = {};
+  const selectedCharIds = [];
+  Object.entries(selections.chars).forEach(([id,st])=>{
+    const total = st.easy+st.normal+st.hard+st.lunatic;
+    if(total === 0) return;
+    selectedCharIds.push(id);
+    easy+=st.easy; normal+=st.normal; hard+=st.hard; lunatic+=st.lunatic;
+    const c = CHAR_DB.find(x=>x.id===id);
+    if(!c) return;
+    charTypes[c.type] = (charTypes[c.type]||0) + total;
+    c.weakness.forEach(w=>{ weaknessCount[w] = (weaknessCount[w]||0) + total; });
+    getCharacterMoveElements(c).forEach(e=>{ elementCount[e] = (elementCount[e]||0) + 1; });
+  });
+  const charTotal = easy+normal+hard+lunatic;
+
+  if(charTotal === 0){
+    messages.push({level:'warn', text:'キャラクターが1体も選択されていません。'});
+    return messages;
+  }
+
+  if(easy === 0){
+    messages.push({level:'warn', text:'easy段階のキャラが0枚です。このままでは場にキャラを出せません。'});
+  } else if(easy < charTotal * 0.3){
+    messages.push({level:'warn', text:`easy段階の割合が少なめです（${easy}/${charTotal}枚）。序盤にキャラを展開しづらいかもしれません。`});
+  }
+
+  if(lunatic > 0 && hard === 0){
+    messages.push({level:'warn', text:'hard段階が0枚なのにlunatic段階があります。進化チェーンが繋がっているか確認してください。'});
+  }
+
+  const distinctChars = selectedCharIds.length;
+  if(distinctChars > 0 && distinctChars <= 2){
+    messages.push({level:'info', text:`採用キャラが${distinctChars}種類と少数精鋭型です。特定キャラへの依存度が高い分、対策されると弱くなりやすいです。`});
+  }
+
+  const typeEntries = Object.entries(charTypes).sort((a,b)=>b[1]-a[1]);
+  if(typeEntries.length === 1){
+    messages.push({level:'warn', text:`採用キャラの種族が「${typeEntries[0][0]}」1種類に偏っています。同じ弱点を突かれると総崩れになりやすいです。`});
+  }
+
+  const weakEntries = Object.entries(weaknessCount).sort((a,b)=>b[1]-a[1]);
+  if(weakEntries.length && weakEntries[0][1] >= charTotal * 0.5){
+    messages.push({level:'warn', text:`デッキ全体の半数以上が「${weakEntries[0][0]}」を弱点として持っています。この弱点を突かれると連鎖的に不利になります。`});
+  }
+
+  const allElements = ['無','木','火','水','氷','岩','闇','光','星'];
+  const missingElements = allElements.filter(e=>!elementCount[e]);
+  if(missingElements.length >= 6){
+    messages.push({level:'info', text:`わざの属性の種類が少なめです（${allElements.length-missingElements.length}／${allElements.length}種類）。相手の弱点を突ける場面が限られるかもしれません。`});
+  }
+
+  if(selections.energy < 18){
+    messages.push({level:'warn', text:`霊力エネルギーが${selections.energy}枚と少なめです。わざを使う燃料が不足しがちになるかもしれません。`});
+  } else if(selections.energy > 32){
+    messages.push({level:'info', text:`霊力エネルギーが${selections.energy}枚と多めです。エネルギー切れの心配は少ない反面、他のカード枠を圧迫しています。`});
+  }
+
+  let itemsTotal=0; Object.values(selections.items).forEach(v=>itemsTotal+=v);
+  let specialsTotal=0; Object.values(selections.specials).forEach(v=>specialsTotal+=v);
+  let supportsTotal=0; Object.values(selections.supports).forEach(v=>supportsTotal+=v);
+  if(itemsTotal === 0) messages.push({level:'info', text:'持ち物カードが1枚もありません。'});
+  if(specialsTotal === 0) messages.push({level:'info', text:'特殊カードが1枚もありません。'});
+  if(supportsTotal === 0) messages.push({level:'info', text:'サポートカードが1枚もありません。'});
+
+  if(messages.length === 0){
+    messages.push({level:'good', text:'目立った偏りは見つかりませんでした。バランスの良いデッキです。'});
+  }
+  return messages;
+}
+
+function renderDiagnosisModal(){
+  if(!builder || !builder.diagnosisOpen) return '';
+  const results = analyzeDeckBias(builder.selections);
+  const iconFor = lv => lv==='warn' ? '⚠️' : lv==='good' ? '✅' : 'ℹ️';
+  return `
+    <div class="builder-modal manual-modal" data-close-diagnosis-backdrop>
+      <div class="builder-modal-box manual-box" data-manual-box>
+        <div class="builder-modal-header">
+          <h3>デッキ診断</h3>
+          <button class="modal-close" data-close-diagnosis>×</button>
+        </div>
+        <div class="manual-content">
+          <ul style="list-style:none; padding:0; margin:0;">
+            ${results.map(r=>`<li style="margin:8px 0; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,.05);">${iconFor(r.level)} ${r.text}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderManualModal(){
+  if(!manualModalOpen) return '';
+  return `
+    <div class="builder-modal manual-modal" data-close-manual-backdrop>      <div class="builder-modal-box manual-box" data-manual-box>
+        <div class="builder-modal-header">
+          <h3>幻想結界カード対戦 説明書</h3>
+          <button class="modal-close" data-close-manual>×</button>
+        </div>
+        <div class="manual-content">
+
+          <h4>■ このゲームについて</h4>
+          <p>東方Projectのキャラクターたちを使って戦う、1対1のカードバトルゲームです。自分の「メイン」キャラで相手のキャラを攻撃し、相手を先に倒すことを目指します。CPU（コンピューター）と対戦するモード、2人で同じ画面を使って対戦する「ホットシート」モード、そして合言葉を使ってインターネット越しに対戦する「オンライン対戦」モードがあります。</p>
+          <p class="manual-sub">※オンライン対戦は簡易的なP2P通信のため、対戦相手のブラウザの開発者ツール等から手札の中身が見えてしまう場合があります。信頼できる相手との対戦を想定しています。</p>
+
+          <h4>■ 勝敗の決まり方</h4>
+          <ul>
+            <li>相手のキャラを合計<span class="manual-sub">5体撃破</span>すると勝利します（画面上部の「撃破: ○/5」で確認できます）。</li>
+            <li>相手の場（メイン・ベンチ全て）にキャラが1体もいなくなった時点で、その相手の負けになります。</li>
+            <li>山札がなくなった状態で自分の番になった場合、その時点で負けになります。</li>
+            <li>ゲーム開始時、手札にeasy段階のキャラクターカードが1枚もない場合は手札を引き直せます（最大3回）。3回引き直してもeasyキャラが手札に来なければ、その時点で負けになります。</li>
+          </ul>
+
+          <h4>■ カードの種類</h4>
+          <table>
+            <tr><th>種類</th><th>説明</th></tr>
+            <tr><td>キャラクターカード</td><td>メインやベンチに出して戦わせる本体。easy→normal→hard→lunaticの4段階に進化する。</td></tr>
+            <tr><td>霊力エネルギー</td><td>わざを使うのに必要。メインかベンチのキャラにドラッグして付ける（1ターンに2枚まで）。</td></tr>
+            <tr><td>持ち物カード</td><td>キャラ1体に1つだけ持たせられる装備品。HPや攻撃力の強化など効果はカードごとに異なる。</td></tr>
+            <tr><td>特殊カード</td><td>強力な効果を持つが、<span class="manual-sub">1ターンに1枚まで</span>しか使えない。</td></tr>
+            <tr><td>サポートカード</td><td>比較的軽い効果だが、<span class="manual-sub">1ターンに何枚でも</span>使える。</td></tr>
+          </table>
+
+          <h4>■ キャラクターカードの見方</h4>
+          <ul>
+            <li><span class="manual-sub">HP</span>：キャラの体力。0になると撃破される。</li>
+            <li><span class="manual-sub">種族</span>：人間・妖怪・鬼・幽霊・妖精・神・月人・魔法使いなど。一部のわざの効果に関係する。</li>
+            <li><span class="manual-sub">弱点</span>：弱点に一致する種族・属性でわざを当てると追加ダメージが入る（後述）。</li>
+            <li><span class="manual-sub">わざ</span>：それぞれに属性・消費エネルギー（コスト）・ダメージ・追加効果がある。</li>
+          </ul>
+
+          <h4>■ 対戦の流れ（1ターンの動き）</h4>
+          <ul>
+            <li>先攻・後攻はランダムに決まります。</li>
+            <li>自分のターンが来ると、山札から1枚引く。</li>
+            <li>手札のキャラクターカード（easy段階）をタップするとメインまたはベンチに出せる。</li>
+            <li>霊力エネルギーや持ち物カードは、手札でタップ→付けたいキャラをタップで装着。</li>
+            <li>特殊・サポートカードは条件に応じて使用（対象が必要なものは同様にタップで選ぶ）。</li>
+            <li>メインのわざをタップすると相手を攻撃できる（消費エネルギーが足りている必要あり）。攻撃は1ターンに1回まで。</li>
+            <li>ベンチのキャラをタップするとメインと交代できる（1ターンに1回まで）。</li>
+            <li>行動が終わったら「ターン終了」ボタンを押す。</li>
+          </ul>
+
+          <h4>■ 属性と弱点ダメージ</h4>
+          <p>わざには「無・木・火・水・氷・岩・闇・光・星」のいずれかの属性があります。攻撃側の種族・属性が、相手（<span class="manual-sub">メインのみ</span>。ベンチを狙うわざでは発生しません）の弱点に一致していると、ボーナスダメージが入ります。</p>
+          <ul>
+            <li>弱点に1つ一致：+30ダメージ</li>
+            <li>弱点に2つ一致：+60ダメージ</li>
+          </ul>
+          <p>追加効果（〇〇に+△△など）によるダメージは、弱点ボーナスの後にさらに加算されます。</p>
+
+          <h4>■ 進化</h4>
+          <p>キャラクターカードにはeasy・normal・hard・lunaticの4段階があります。easy段階のカードだけが新規にメイン・ベンチへ出せます。normal以降のカードは、場にいる一つ前の段階の同じキャラをタップして進化させて使います（例：normalカードなら、場にいるeasy段階の同じキャラを進化させる）。</p>
+          <ul>
+            <li>進化すると、HPと攻撃力が段階ごとに上昇します。</li>
+            <li><span class="manual-sub">出したばかりのターン</span>、または<span class="manual-sub">進化したばかりのターン</span>は、そのキャラをさらに進化させることはできません（1ターンでeasy→normal→hardのように一気に進化することは不可）。</li>
+          </ul>
+
+          <h4>■ 状態異常</h4>
+          <table>
+            <tr><th>状態</th><th>効果</th></tr>
+            <tr><td>やけど</td><td>効果が発動するたびにダメージを受ける</td></tr>
+            <tr><td>凍結</td><td>攻撃力が下がる（わざの威力が75%になる）</td></tr>
+            <tr><td>再生</td><td>効果が発動するたびにHPが回復する</td></tr>
+            <tr><td>結界</td><td>受けるダメージを一定値だけ軽減する</td></tr>
+            <tr><td>道連れの呪い</td><td>かかっているキャラが倒れると、相手に反撃ダメージが入る</td></tr>
+          </table>
+          <p>状態異常は、<span class="manual-sub">かかっている本人のターンが終了するとき</span>に効果が発動し、そのまま消えます（自分にかかっているものは自分のターン終了時、相手にかかっているものは相手のターン終了時）。</p>
+
+          <h4>■ 交代・繰り上げ</h4>
+          <ul>
+            <li>ベンチのキャラをタップすると、メインと入れ替えられます（1ターンに1回まで）。</li>
+            <li>メインのキャラが倒された場合、ベンチにキャラが残っていれば、そこから新しいメインを選んで繰り上げます（自分の場合はどのキャラにするか選べます。CPUは自動で選びます）。</li>
+            <li>ベンチもメインもいなくなった時点でその時点の敗北になります。</li>
+          </ul>
+
+          <h4>■ デッキ編成</h4>
+          <p>1つのデッキはちょうど70枚で組みます。「おまかせで組む」ボタンを押すと、キャラクター・霊力エネルギー・交代エネルギー・持ち物・特殊・サポートのバランスを取りながら自動でランダムに組んでくれます。手動で調整したい場合は、各カードの＋／－ボタンで枚数を変更してください。</p>
+
+          <h4>■ 困ったときは</h4>
+          <p>この説明書はデッキ編成画面・対戦画面のどちらからでも、いつでも開けます。ルールを忘れてしまったときはこのボタンを押してください。</p>
+
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderFilterModal(){
+  if(!builder || !builder.filterOpen) return '';
+  const filter = builder.charFilter;
+  return `
+    <div class="builder-modal filter-modal">
+      <div class="builder-modal-box filter-modal-box">
+        <div class="builder-modal-header">
+          <h3>キャラクター絞り込み</h3>
+          <button class="modal-close" data-close-filter>×</button>
+        </div>
+        ${filterButtonGroup('種族','types',uniqueCharacterTypes(),filter.types)}
+        ${filterButtonGroup('ワザに含まれる属性（追加効果を含む）','elements',uniqueMoveElements(),filter.elements)}
+        ${filterButtonGroup('弱点','weaknesses',uniqueWeaknesses(),filter.weaknesses)}
+        <div class="controls">
+          <button data-clear-character-filter class="resign">条件をクリア</button>
+          <button data-apply-character-filter>この条件で絞り込む</button>
+        </div>
+      </div>
+    </div>`;
+}
+function renderBuilder(){
+  const app = document.getElementById('app');
+  const prevItemListEl = document.getElementById('itemDeckList');
+  const prevItemScroll = prevItemListEl ? prevItemListEl.scrollTop : 0;
+  const prevFilterModalEl = document.querySelector('.filter-modal-box');
+  const prevFilterModalScroll = prevFilterModalEl ? prevFilterModalEl.scrollTop : 0;
+  const prevDocumentScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+
+  const sel = builder.selections;
+  const playerLabel = builder.mode === 'hotseat' ? `プレイヤー${builder.playerIdx+1}` : 'あなた';
+
+  const itemCards = ITEM_DB.map(it=>{
+    const n = sel.items[it.id] || 0;
+    const body = `<div class="character-select-desc-row">${it.desc}</div>`;
+    const controls = `<div class="builder-card-controls single-stepper-wrap">
+      <span class="character-select-stage-label">枚数（4枚まで）</span>
+      <div class="stepper">
+        <button data-item="${it.id}" data-delta="-1" ${n<=0?'disabled':''}>−</button>
+        <span>${n}</span>
+        <button data-item="${it.id}" data-delta="1" ${n>=4?'disabled':''}>＋</button>
+      </div>
+    </div>`;
+    return renderBuilderCard('#a8813f', it.name, '持ち物', body, controls);
+  }).join('');
+
+  const specialCards = SPECIAL_DB.map(sp=>{
+    const n = sel.specials[sp.id] || 0;
+    const body = `<div class="character-select-desc-row">${sp.desc}</div>`;
+    const controls = `<div class="builder-card-controls single-stepper-wrap">
+      <span class="character-select-stage-label">枚数（5枚まで）</span>
+      <div class="stepper">
+        <button data-special="${sp.id}" data-delta="-1" ${n<=0?'disabled':''}>−</button>
+        <span>${n}</span>
+        <button data-special="${sp.id}" data-delta="1" ${n>=5?'disabled':''}>＋</button>
+      </div>
+    </div>`;
+    return renderBuilderCard('#8a4fbf', sp.name, '特殊カード', body, controls);
+  }).join('');
+
+  const supportCards = SUPPORT_DB.map(su=>{
+    const n = sel.supports[su.id] || 0;
+    const body = `<div class="character-select-desc-row">${su.desc}</div>`;
+    const controls = `<div class="builder-card-controls single-stepper-wrap">
+      <span class="character-select-stage-label">枚数（5枚まで）</span>
+      <div class="stepper">
+        <button data-support="${su.id}" data-delta="-1" ${n<=0?'disabled':''}>−</button>
+        <span>${n}</span>
+        <button data-support="${su.id}" data-delta="1" ${n>=5?'disabled':''}>＋</button>
+      </div>
+    </div>`;
+    return renderBuilderCard('#2f9e7f', su.name, 'サポート', body, controls);
+  }).join('');
+
+  const total = builderTotal();
+  let charTotal = 0, easyTotal = 0;
+  Object.values(sel.chars).forEach(stages=>{ STAGE_ORDER.forEach(st=>{ charTotal += stages[st]; }); easyTotal += stages.easy; });
+  const exact = total === DECK_SIZE;
+  const warn2 = charTotal < 3 ? `<div class="warn">キャラクターカードは3枚以上推奨です（イージーがないとメインやベンチに出せません）</div>` : '';
+  const warn3 = easyTotal === 0 ? `<div class="warn">イージーのカードが1枚もありません。これでは場にキャラを出せません。</div>` : '';
+
+  app.innerHTML = `
+    <div class="table builder">
+      <h2 class="builder-title">${playerLabel}のデッキ編成</h2>
+      <div class="builder-summary ${exact?'summary-ok':'warn'}">合計 ${total} / ${DECK_SIZE} 枚${exact ? '（ちょうどです！）' : `（あと${DECK_SIZE-total}枚必要）`}</div>
+      <div class="builder-save-note">※ここまでの編成内容は自動保存されます（更新しても失われません）</div>
+      ${warn2}
+      ${warn3}
+
+      <div class="builder-section-title">キャラクターカード（easyは4枚まで、normal／hard／lunaticは各3枚まで）</div>
+      ${renderCharacterSection()}
+
+      <div class="builder-section-title">エネルギー（枚数制限なし）</div>
+      <div class="character-card-grid">
+        ${renderBuilderCard('#9c8a5c', '霊力エネルギー', 'エネルギー',
+          `<div class="character-select-desc-row">わざの消費エネルギーとして使う。メイン・ベンチどちらにもドラッグで自由に付けられる</div>`,
+          `<div class="builder-card-controls single-stepper-wrap">
+            <span class="character-select-stage-label">枚数（制限なし）</span>
+            <div class="stepper energy-stepper">
+              <button data-energy-delta="-10" ${sel.energy<=0?'disabled':''}>−10</button>
+              <button data-energy-delta="-1" ${sel.energy<=0?'disabled':''}>−1</button>
+              <span>${sel.energy}</span>
+              <button data-energy-delta="1" ${total>=DECK_SIZE?'disabled':''}>＋1</button>
+              <button data-energy-delta="10" ${total>=DECK_SIZE?'disabled':''}>＋10</button>
+            </div>
+          </div>`,
+          `<div class="character-select-hp energy-orb-display"><span class="orb"></span></div>`
+        )}
+        ${renderBuilderCard('#7c8a9c', '交代エネルギー', 'エネルギー',
+          `<div class="character-select-desc-row">メインとベンチを入れ替える（交代する）ために必要。メインにドラッグで付けておくと、そのキャラが交代できるようになる</div>`,
+          `<div class="builder-card-controls single-stepper-wrap">
+            <span class="character-select-stage-label">枚数（制限なし）</span>
+            <div class="stepper energy-stepper">
+              <button data-retreat-energy-delta="-10" ${(sel.retreatEnergy||0)<=0?'disabled':''}>−10</button>
+              <button data-retreat-energy-delta="-1" ${(sel.retreatEnergy||0)<=0?'disabled':''}>−1</button>
+              <span>${sel.retreatEnergy||0}</span>
+              <button data-retreat-energy-delta="1" ${total>=DECK_SIZE?'disabled':''}>＋1</button>
+              <button data-retreat-energy-delta="10" ${total>=DECK_SIZE?'disabled':''}>＋10</button>
+            </div>
+          </div>`,
+          `<div class="character-select-hp energy-orb-display">🟣</div>`
+        )}
+      </div>
+
+      <div class="builder-section-title">持ち物カード（各0〜4枚）</div>
+      <div class="character-card-grid">${itemCards}</div>
+
+      <div class="builder-section-title">特殊カード（各0〜5枚・1ターンに1枚まで使用可）</div>
+      <div class="character-card-grid">${specialCards}</div>
+
+      <div class="builder-section-title">サポートカード（各0〜5枚・1ターンに何枚でも使用可）</div>
+      <div class="character-card-grid">${supportCards}</div>
+
+      <div class="controls" style="margin-top:14px;">
+        <button id="autoFillBtn">おまかせで組む</button>
+        <button id="confirmDeckBtn" class="attack" ${exact?'':'disabled'}>このデッキで決定</button>
+        <button id="openDeckSlotsBtn" class="manual-btn">デッキ保存</button>
+        <button id="openDiagnosisBtn" class="manual-btn">デッキ診断</button>
+        <button id="openManualBtn" class="manual-btn">説明書</button>
+        <button id="backToMenuFromBuilder" class="resign">モード選択に戻る</button>
+      </div>
+    </div>
+    ${renderFilterModal()}
+    ${renderManualModal()}
+    ${renderDiagnosisModal()}
+    ${renderDeckSlotsModal()}`;
+
+  const restoreBuilderScroll = () => {
+    window.scrollTo(0, prevDocumentScrollY);
+    document.documentElement.scrollTop = prevDocumentScrollY;
+    document.body.scrollTop = prevDocumentScrollY;
+    const newFilterModal = document.querySelector('.filter-modal-box');
+    if(newFilterModal) newFilterModal.scrollTop = prevFilterModalScroll;
+  };
+  restoreBuilderScroll();
+  requestAnimationFrame(restoreBuilderScroll);
+  setTimeout(restoreBuilderScroll, 0);
+  const newItemList = document.getElementById('itemDeckList');
+  if(newItemList) newItemList.scrollTop = prevItemScroll;
+
+  saveBuilderDraft();
+}
+
+/* =========================================================
+   描画：対戦画面
+========================================================= */
+function passiveLabel(card){
+  const p = card.passive;
+  if(!p) return '';
+  if(p.type === 'statusImmune') return '特性：場にいる間、状態異常（やけど・凍結・道連れの呪い）にならない';
+  if(p.type === 'selfHealPerTurn') return `特性：場にいる間、毎ターンHPを${p.amount}回復`;
+  if(p.type === 'hpBonusIfAllyPresent'){
+    const ally = CHAR_DB.find(c=>c.id===p.allyId);
+    return `特性：場に${ally?ally.name:p.allyId}がいる間、最大HP+${p.amount}`;
+  }
+  if(p.type === 'atkBonusIfAllyPresent'){
+    const ally = CHAR_DB.find(c=>c.id===p.allyId);
+    return `特性：場に${ally?ally.name:p.allyId}がいる間、攻撃力+${p.amount}`;
+  }
+  if(p.type === 'chanceAttachEnergyIfMain') return `特性：メインにいる時、自分のターンに${Math.round(p.chance*100)}%の確率で霊力エネルギーを自身に付ける`;
+  if(p.type === 'chanceDrawIfMain') return `特性：メインにいる時、自分のターンに${Math.round(p.chance*100)}%の確率で山札から1枚引く`;
+  if(p.type === 'statusImmuneType') return `特性：${p.statusType==='burn'?'やけど':'凍結'}状態にならない`;
+  if(p.type === 'chanceBonusDamageFraction') return `特性：ダメージを与える際、${Math.round(p.chance*100)}%の確率で与えたダメージの${Math.round(1/p.fraction)}分の1をプラスで与える`;
+  if(p.type === 'selfDamagePerTurn') return `特性：メインにいる時、自分のターンが終わると自分に${p.amount}ダメージ`;
+  if(p.type === 'damageReductionFraction') return `特性：場にいる間、受けるダメージが${Math.round(p.fraction*100)}%になる（状態異常のダメージを除く）`;
+  if(p.type === 'finisherLowHp') return `特性：メインにいるとき、相手の体力が${p.threshold}以下なら、その相手に${p.amount}ダメージ（ベンチも対象）`;
+  return '';
+}
+
+function effectLabel(effects){
+  if(!effects || !effects.length) return '';
+  const labels = effects.map(ef=>{
+    switch(ef.type){
+      case 'bonusVsType': return `／${ef.targetType}に+${ef.amount}`;
+      case 'benchBonusVsType': return `／敵ベンチの${ef.targetType}に${ef.amount}`;
+      case 'flatBonusDamage': return `／敵ベンチに${ef.amount}ダメージ`;
+      case 'selfBenchDamage': return `／自分のベンチ全体に${ef.amount}ダメージ`;
+      case 'secondaryBenchDamageRandom': return `／敵ベンチのランダムな1体に${ef.amount}ダメージ`;
+      case 'drawCardsEqualToKnockouts': return `／自分の撃破数と同じ枚数のカードを引く`;
+      case 'selfGiveEnergy': return `／自分に霊力エネルギー${ef.amount}枚付与`;
+      case 'selfGiveRetreatEnergy': return `／自分に交代エネルギー${ef.amount}枚付与`;
+      case 'bonusIfOpponentHigherHp': return `／相手の体力が自分より多いなら+${ef.amount}`;
+      case 'bonusIfOpponentHpAtLeast': return `／相手の体力が${ef.threshold}以上なら+${ef.amount}`;
+      case 'benchDamage': return `／敵ベンチ全員に${ef.amount}`;
+      case 'selfStatus': return `／自分に${ef.status==='regen'?'再生':ef.status==='shield'?'結界':ef.status==='curse'?'道連れの呪い':ef.status}付与`;
+      case 'inflictStatus': return `／相手に${ef.status==='random'?'ランダム状態異常':(ef.status==='burn'?'やけど':'凍結')}付与`;
+      case 'recoil': return `／自分に${ef.amount}反動`;
+      case 'shield': return `／結界(被弾-${ef.amount})付与`;
+      case 'healBench': return `／ベンチに${ef.amount}回復`;
+      case 'halfDamageNext': return `／自分は次に受けるダメージが半分になる`;
+      case 'benchGiveEnergy': return `／ベンチ${ef.count||1}体に霊力エネルギー${ef.amount||1}付与`;
+      case 'benchGiveRetreatEnergy': return `／ベンチ${ef.count||1}体に交代エネルギー${ef.amount||1}付与`;
+      case 'addElement': return `／${ef.element}属性追加`;
+      case 'randomElement': return `／属性ランダム(${(ef.pool||[]).join('/')})`;
+      case 'ignoreWeakness': return `／弱点無視`;
+      case 'bonusIfStatus': return `／相手が${ef.statusType==='shield'?'結界':ef.statusType}状態なら+${ef.amount}`;
+      case 'multiHitRandom': return `／${ef.dmgPerHit}ダメージをランダムな相手に${ef.hits}回攻撃(弱点無視)`;
+      case 'multiHitBenchRandom': return `／敵ベンチにランダムに${ef.hits}回攻撃`;
+      case 'fixedMultiHitMain': return `／敵メインに${ef.hits}回攻撃`;
+      case 'healBenchAll': return `／自分のベンチ全員に${ef.amount}回復`;
+      case 'weaknessMatchElement': return `／相手の弱点属性に合わせて発動`;
+      case 'drawCard': return `／山札から${ef.amount}枚引く`;
+      case 'drawOnKO': return `／撃破時に${ef.amount}枚引く`;
+      case 'selfDamageOnKO': return `／撃破時に自分に${ef.amount}反動`;
+      case 'selfSwapAfter': return `／攻撃後ベンチと入れ替わる`;
+      case 'forcedSwapThenStatus': return `／攻撃後、相手を強制交代させ${ef.status==='burn'?'やけど':ef.status}を付与`;
+      case 'returnHandToDeck': return `／相手の手札1枚をランダムに山札へ戻す`;
+      case 'preventRetreat': return `／相手を${ef.turns}ターン交代不可に`;
+      case 'revealHandCards': return `／相手の手札を${ef.count}枚ランダムに見る`;
+      case 'discardRandomHandCard': return `／相手の手札${ef.amount||1}枚をランダムに捨てさせる`;
+      case 'bonusIfFullHp': return `／相手がHP満タンなら+${ef.amount}`;
+      case 'bonusIfSelfFullHp': return `／自分のHPが満タンなら+${ef.amount}`;
+      case 'becomeTypeIfWeak': return `／相手が${ef.targetSpecies}弱点なら自分を${ef.targetSpecies}として攻撃`;
+      case 'benchBonusVsWeakness': return `／弱点${ef.targetWeakness}のベンチに${ef.amount}`;
+      case 'reverseWeakness': return `／相手は${ef.turns}ターンの間、無属性以外すべてが弱点に`;
+      case 'randomBenchOrMain': return `／${Math.round(ef.chance*100)}%でベンチに命中`;
+      default: return '';
+    }
+  });
+  return labels.join('');
+}
+
+function renderAttackList(instance, opponentPlayer, clickable){
+  const opponentMain = opponentPlayer.main;
+  const opponentHasBench = opponentPlayer.bench.some(b=>b);
+  return `<div class="ac-moves">${instance.card.moves.map((mv,mi)=>{
+    const effects = mv.effects || [];
+    const isMultiHit = effects.some(ef=>ef.type === 'multiHitRandom');
+    const isBenchMultiHit = effects.some(ef=>ef.type === 'multiHitBenchRandom');
+    const isFixedMultiHit = effects.some(ef=>ef.type === 'fixedMultiHitMain');
+    const isTargetBench = !!mv.targetBench;
+    const hasAnyTarget = (isMultiHit || isFixedMultiHit) ? !!opponentMain
+                        : isBenchMultiHit ? opponentHasBench
+                        : isTargetBench ? opponentHasBench
+                        : !!opponentMain;
+    const disabled = !clickable || instance.energy < mv.cost || !hasAnyTarget;
+    const cost = mv.cost === 0 ? '○' : '●'.repeat(mv.cost);
+    const costLabel = mv.cost === 0 ? '消費なし' : `消費${mv.cost}`;
+    const eff = effectLabel(effects) + (isTargetBench ? '／ベンチ攻撃' : '');
+    let dmgDisplay = '?';
+    let multTag = '';
+    if(isMultiHit){
+      const mh = effects.find(ef=>ef.type === 'multiHitRandom');
+      const perHit = mh.dmgPerHit + stageIdx(instance) * (mh.scalePerStage||0);
+      dmgDisplay = `${perHit}×${mh.hits}（合計${perHit*mh.hits}）`;
+    } else if(isBenchMultiHit){
+      const mh = effects.find(ef=>ef.type === 'multiHitBenchRandom');
+      const perHit = mh.dmgPerHit + stageIdx(instance) * (mh.scalePerStage||0);
+      dmgDisplay = `${perHit}×${mh.hits}（合計${perHit*mh.hits}）`;
+    } else if(isFixedMultiHit && opponentMain){
+      const mh = effects.find(ef=>ef.type === 'fixedMultiHitMain');
+      const { dmg } = computeDamage(instance, opponentMain, mi, mv.element, true);
+      dmgDisplay = `${dmg}×${mh.hits}（合計${dmg*mh.hits}）`;
+    } else if(isTargetBench){
+      const sampleBench = opponentPlayer.bench.find(b=>b);
+      if(sampleBench){
+        const { dmg } = computeDamage(instance, sampleBench, mi, mv.element, false);
+        dmgDisplay = dmg;
+      } else {
+        dmgDisplay = mv.dmg + '+';
+      }
+    } else if(opponentMain){
+      const previewElement = estimateEffectiveElement(mv, effects, opponentMain);
+      const { dmg, weaknessBonus } = computeDamage(instance, opponentMain, mi, previewElement);
+      dmgDisplay = dmg;
+      multTag = weaknessBonus > 0 ? ` <span class="mult-tag">弱点+${weaknessBonus}</span>` : '';
+    }
+    return `<button class="move-row" ${disabled?'disabled':''} data-move-index="${mi}">
+      <span class="move-cost">${cost}</span>
+      <span class="move-name">${mv.name}<small>（${mv.element}属性・${costLabel}${eff}）</small></span>
+      <span class="move-dmg">${dmgDisplay}${multTag}</span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function statusLabel(instance){
+  if(!instance.status) return '';
+  const map = { burn:['やけど','burn'], freeze:['凍結','freeze'], regen:['再生','regen'], shield:['結界','shield'], curse:['道連れ','curse'] };
+  const info = map[instance.status.type];
+  if(!info) return '';
+  return `<span class="status-tag ${info[1]}">${info[0]}(${instance.status.turnsLeft})</span>`;
+}
+
+function stageBadge(instance){
+  const idx = stageIdx(instance);
+  if(idx <= 0) return '';
+  return `<span class="stage-badge stage-${instance.stage}">${STAGE_LABEL[instance.stage]}</span>`;
+}
+
+function renderMainSlot(player, opponentPlayer, isSelfPanel, attackClickable, targetable, enemyTargetable){
+  if(!player.main){
+    return `<div class="slot main-slot">${isSelfPanel ? 'メインなし（手札のキャラクターをタップ）' : 'メインなし'}</div>`;
+  }
+  const a = player.main;
+  const maxHp = getMaxHp(a);
+  const pct = Math.max(0, Math.round((a.hp / maxHp) * 100));
+  const color = TYPE_COLOR[a.card.type] || '#888';
+  const orbs = Array.from({length:2}, (_,i)=>`<div class="orb ${i<a.energy?'':'empty'}"></div>`).join('');
+  const extraOrb = Math.max(0, a.energy - 2);
+  const weaknessLabel = a.card.weakness.length ? a.card.weakness.join('・') : 'なし';
+  const itemLine = a.item ? `<div class="ac-item">🎁 ${a.item.name}（${a.item.desc}）</div>` : '';
+  const passiveLine = a.card.passive ? `<div class="ac-passive">✨ ${passiveLabel(a.card)}</div>` : '';
+  const moves = renderAttackList(a, opponentPlayer, attackClickable);
+  const targetAttr = (isSelfPanel && targetable) ? `data-main-target="1"` : '';
+  const enemyAttr = (!isSelfPanel && enemyTargetable) ? `data-enemy-main-target="1"` : '';
+  const isTargetable = (isSelfPanel && targetable) || (!isSelfPanel && enemyTargetable);
+
+  return `
+    <div class="active-card main-slot ${isTargetable?'targetable':''}" style="--type-color:${color}" ${targetAttr} ${enemyAttr}>
+      <div class="ac-top"><span class="ac-name">${a.card.name}${stageBadge(a)}</span><span class="ac-type">${a.card.type}</span></div>
+      <div class="ac-meta"><span>HP ${Math.max(0,a.hp)} / ${maxHp}</span>${statusLabel(a)}</div>
+      <div class="hp-bar-wrap"><div class="hp-bar ${pct<=30?'low':''}" style="width:${pct}%"></div></div>
+      <div class="ac-energy">エネルギー: ${orbs}${extraOrb>0?` +${extraOrb}`:''} <span style="margin-left:auto">(${a.energy}枚)</span></div>
+      <div class="ac-energy">交代エネルギー: ${a.retreatEnergy||0}枚</div>
+      ${itemLine}
+      ${passiveLine}
+      ${moves}
+      <div class="weak-tag">弱点: ${weaknessLabel}</div>
+    </div>`;
+}
+
+function renderBenchSlot(instance, interactable, benchIndex, targetable, playerIdx, slotIndex, enemyTargetable, forcedSwapTargetable, promotionTargetable, gapSwapTargetable, benchBuffTargetable){
+  if(!instance){
+    return `<div class="bench-card empty">空き</div>`;
+  }
+  const maxHp = getMaxHp(instance);
+  const pct = Math.max(0, Math.round((instance.hp / maxHp) * 100));
+  const color = TYPE_COLOR[instance.card.type] || '#888';
+  const weak = instance.card.weakness.length ? instance.card.weakness.join('・') : 'なし';
+  const movesText = instance.card.moves.map(m=>`${m.name}(${m.element}・${m.cost===0?'消費0':'消費'+m.cost}=${m.dmg}${effectLabel(m.effects)})`).join(' / ');
+  const statusIcon = instance.status ? (instance.status.type==='burn'?' 🔥':instance.status.type==='freeze'?' ❄️':instance.status.type==='regen'?' 💚':instance.status.type==='curse'?' 💀':' 🛡️') : '';
+  const detailAttr = (playerIdx !== undefined && slotIndex !== undefined) ? `data-detail-bench="${playerIdx}:${slotIndex}"` : '';
+  const enemyAttr = enemyTargetable ? `data-enemy-bench-index="${slotIndex}"` : '';
+  const forcedAttr = forcedSwapTargetable ? `data-forced-swap-index="${slotIndex}"` : '';
+  const promoAttr = promotionTargetable ? `data-promotion-index="${slotIndex}"` : '';
+  const gapAttr = gapSwapTargetable ? `data-gap-swap-index="${slotIndex}"` : '';
+  const benchBuffAttr = benchBuffTargetable ? `data-benchbuff-index="${slotIndex}"` : '';
+  const isTargetable = targetable || enemyTargetable || forcedSwapTargetable || promotionTargetable || gapSwapTargetable || benchBuffTargetable;
+  return `<div class="bench-card ${interactable?'swappable':''} ${isTargetable?'targetable':''}" style="--type-color:${color}" ${interactable?`data-bench-index="${benchIndex}"`:''} ${detailAttr} ${enemyAttr} ${forcedAttr} ${promoAttr} ${gapAttr} ${benchBuffAttr}>
+    <div class="bc-name">${instance.card.name}${stageBadge(instance)}<span class="bc-type">${instance.card.type}</span></div>
+    <div class="bc-hp">HP ${Math.max(0,instance.hp)}/${maxHp}${statusIcon}</div>
+    <div class="hp-bar-wrap mini"><div class="hp-bar ${pct<=30?'low':''}" style="width:${pct}%"></div></div>
+    <div class="bc-energy">霊力: ${instance.energy}枚／交代: ${instance.retreatEnergy||0}枚</div>
+    <div class="bc-weak">弱点: ${weak}</div>
+    ${instance.card.passive ? `<div class="bc-passive">✨ ${passiveLabel(instance.card)}</div>` : ''}
+    <div class="bc-moves">${movesText}</div>
+    ${instance.item ? `<div class="bc-item">🎁${instance.item.name}</div>` : ''}
+  </div>`;
+}
+
+function renderHandCard(card, index, interactive, selected){
+  const cls = [interactive ? '' : 'dim', selected ? 'selected' : ''].filter(Boolean).join(' ');
+  const dataAttr = interactive ? `data-hand-index="${index}"` : '';
+  const detailAttr = `data-detail-index="${index}"`;
+  if(card.isEnergy){
+    return `<div class="hcard energy ${cls}" ${dataAttr} ${detailAttr} style="--type-color:var(--gold)">
+      <div class="orb"></div><div class="hname">霊力</div><div class="htype">エネルギー</div>
+    </div>`;
+  }
+  if(card.isRetreatEnergy){
+    return `<div class="hcard energy ${cls}" ${dataAttr} ${detailAttr} style="--type-color:#7c8a9c">
+      <div class="retreat-orb">🟣</div><div class="hname">交代</div><div class="htype">エネルギー</div>
+    </div>`;
+  }
+  if(card.isItem){
+    return `<div class="hcard ${cls}" ${dataAttr} ${detailAttr} style="--type-color:#a8813f">
+      <div class="hname">${card.name}</div><div class="htype">持ち物</div><div class="hhp">${card.desc}</div>
+    </div>`;
+  }
+  if(card.isSpecial){
+    return `<div class="hcard ${cls}" ${dataAttr} ${detailAttr} style="--type-color:#8a4fbf">
+      <div class="hname">${card.name}</div><div class="htype">特殊カード</div><div class="hhp">${card.desc}</div>
+    </div>`;
+  }
+  if(card.isSupport){
+    return `<div class="hcard ${cls}" ${dataAttr} ${detailAttr} style="--type-color:#2f9e7f">
+      <div class="hname">${card.name}</div><div class="htype">サポート</div><div class="hhp">${card.desc}</div>
+    </div>`;
+  }
+  const color = TYPE_COLOR[card.type] || '#888';
+  const weak = card.weakness.length ? card.weakness.join('・') : 'なし';
+  const cs = card.cardStage || 'easy';
+  const csBadge = `<span class="stage-badge stage-${cs}" style="${cs==='easy'?'background:#4a4a6a;':''}">${STAGE_LABEL[cs]}</span>`;
+  return `<div class="hcard ${cls}" ${dataAttr} ${detailAttr} style="--type-color:${color}">
+    <div class="hname">${card.name}${csBadge}</div>
+    <div class="htype">${card.type} / 弱点:${weak}</div>
+    <div class="hhp">HP${card.hp}</div>
+  </div>`;
+}
+
+function renderCardDetailContent(card){
+  if(card.isEnergy){
+    return `<div class="detail-card">
+      <div class="detail-title">霊力エネルギー</div>
+      <div class="detail-desc">わざを使うために消費するエネルギー。手札から選んで、メイン・ベンチどちらのキャラにも自由に付けられる。</div>
+    </div>`;
+  }
+  if(card.isRetreatEnergy){
+    return `<div class="detail-card">
+      <div class="detail-title">🟣 交代エネルギー</div>
+      <div class="detail-desc">メインとベンチを入れ替える（交代する）ために必要なエネルギー。メインにこれが付いていないと交代できない。手札から選んで、メイン・ベンチどちらのキャラにも自由に付けられる。</div>
+    </div>`;
+  }
+  if(card.isItem){
+    return `<div class="detail-card">
+      <div class="detail-title">${card.name}</div>
+      <div class="detail-desc">${card.desc}</div>
+    </div>`;
+  }
+  if(card.isSpecial || card.isSupport){
+    return `<div class="detail-card">
+      <div class="detail-title">${card.name}</div>
+      <div class="detail-desc">${card.desc}</div>
+    </div>`;
+  }
+  const color = TYPE_COLOR[card.type] || '#888';
+  const weak = card.weakness.length ? card.weakness.join('・') : 'なし';
+  const cs = card.cardStage || 'easy';
+  const csNote = cs === 'easy' ? '（このカードだけでメイン・ベンチに出せる）' : `（場にいる${STAGE_LABEL[STAGE_ORDER[STAGE_ORDER.indexOf(cs)-1]]}段階の同キャラを進化させる専用カード）`;
+  const movesHtml = card.moves.map(m=>{
+    const costLabel = m.cost === 0 ? '消費なし' : `消費${m.cost}`;
+    return `<div class="detail-move-row"><span>${m.name}（${m.element}・${costLabel}${effectLabel(m.effects)}）</span><span class="detail-dmg">${m.dmg}</span></div>`;
+  }).join('');
+  return `
+    <div class="detail-card" style="--type-color:${color}">
+      <div class="detail-top"><span class="detail-name">${card.name}${stageBadge({stage:cs})||`<span class="stage-badge" style="background:#4a4a6a;">${STAGE_LABEL.easy}</span>`}</span><span class="detail-type">${card.type}</span></div>
+      <div class="detail-hp">HP ${card.hp} <span style="font-size:10px;color:#6b5d4a;">${csNote}</span></div>
+      <div class="detail-weak">弱点: ${weak}</div>
+      ${card.passive ? `<div class="detail-passive">✨ ${passiveLabel(card)}</div>` : ''}
+      <div class="detail-moves">${movesHtml}</div>
+    </div>`;
+}
+
+function getSelfPlayer(){
+  return state.players[getSelfIdx()];
+}
+
+function renderInstanceDetailContent(instance){
+  const maxHp = getMaxHp(instance);
+  const color = TYPE_COLOR[instance.card.type] || '#888';
+  const weak = instance.card.weakness.length ? instance.card.weakness.join('・') : 'なし';
+  const orbs = Array.from({length:2}, (_,i)=>`<div class="orb ${i<instance.energy?'':'empty'}"></div>`).join('');
+  const extraOrb = Math.max(0, instance.energy - 2);
+  const itemLine = instance.item ? `<div class="ac-item">🎁 ${instance.item.name}（${instance.item.desc}）</div>` : '';
+  const movesHtml = instance.card.moves.map(m=>{
+    const costLabel = m.cost === 0 ? '消費なし' : `消費${m.cost}`;
+    return `<div class="detail-move-row"><span>${m.name}（${m.element}・${costLabel}${effectLabel(m.effects)}）</span><span class="detail-dmg">${m.dmg}</span></div>`;
+  }).join('');
+  return `
+    <div class="detail-card" style="--type-color:${color}">
+      <div class="detail-top"><span class="detail-name">${instance.card.name}${stageBadge(instance)}</span><span class="detail-type">${instance.card.type}</span></div>
+      <div class="detail-hp">HP ${Math.max(0,instance.hp)} / ${maxHp} ${statusLabel(instance)}</div>
+      <div class="ac-energy" style="margin-top:6px;">エネルギー: ${orbs}${extraOrb>0?` +${extraOrb}`:''} <span style="margin-left:auto">(${instance.energy}枚)</span></div>
+      <div class="ac-energy">交代エネルギー: ${instance.retreatEnergy||0}枚</div>
+      ${itemLine}
+      <div class="detail-weak">弱点: ${weak}</div>
+      ${instance.card.passive ? `<div class="detail-passive">✨ ${passiveLabel(instance.card)}</div>` : ''}
+      <div class="detail-moves">${movesHtml}</div>
+    </div>`;
+}
+
+function showBenchDetail(key){
+  if(!state) return;
+  const [playerIdx, benchIndex] = key.split(':').map(Number);
+  const player = state.players[playerIdx];
+  if(!player) return;
+  const instance = player.bench[benchIndex];
+  if(!instance) return;
+  const overlay = document.getElementById('cardDetailOverlay');
+  overlay.innerHTML = renderInstanceDetailContent(instance);
+  overlay.style.display = 'flex';
+}
+
+function showCardDetail(index){
+  if(!state) return;
+  const card = getSelfPlayer().hand[index];
+  if(!card) return;
+  const overlay = document.getElementById('cardDetailOverlay');
+  overlay.innerHTML = renderCardDetailContent(card);
+  overlay.style.display = 'flex';
+}
+function hideCardDetail(){
+  const overlay = document.getElementById('cardDetailOverlay');
+  overlay.style.display = 'none';
+}
+
+function gameOverBannerText(){
+  if(state.mode === 'cpu'){ return state.winner === 0 ? 'GAME CLEAR' : 'GAME OVER'; }
+  return 'GAME SET';
+}
+
+function renderOpponentHandBacks(player, viewerIdx){
+  const backs = player.hand.map(c=>{
+    if(c._revealedToPlayerIdx === viewerIdx){
+      const label = c.isEnergy ? '霊力エネルギー' : c.isRetreatEnergy ? '交代エネルギー' : c.name;
+      return `<div class="opponent-hand-back revealed" title="${label}">${label}</div>`;
+    }
+    return '<div class="opponent-hand-back" aria-hidden="true">✦</div>';
+  }).join('');
+  return `<div class="opponent-hand-row"><span class="opponent-hand-label">相手の手札</span>${backs}</div>`;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  const selfIdx = getSelfIdx();
+  const otherIdx = 1 - selfIdx;
+  const selfPlayer = state.players[selfIdx];
+  const otherPlayer = state.players[otherIdx];
+  const humanActive = isHumanTurnNow();
+  const forcedPending = state.forcedSwapPending;
+  const promoPending = state.promotionPending;
+  const gapPending = state.gapSwapPending;
+  const choicePending = state.cardChoicePending;
+  const evolvePending = state.evolveChoicePending;
+  const benchBuffPending = state.benchBuffPending;
+  const selfInteractable = (selfIdx === state.turn) && !state.gameOver && !forcedPending && !promoPending && !gapPending && !choicePending && !evolvePending && !benchBuffPending && state.pendingMoveIndex === null;
+  const attackClickable = selfInteractable && !!otherPlayer.main;
+  const hasSelection = state.selectedHandIndex !== null;
+  const selectedCard = hasSelection ? selfPlayer.hand[state.selectedHandIndex] : null;
+  const enemyTargetMode = !!(selectedCard && selectedCard.effectType === 'energyMinus');
+  const ownTargetMode = hasSelection && !enemyTargetMode;
+  const moveTargetingBench = state.pendingMoveIndex !== null;
+  const enemyBenchTargetMode = enemyTargetMode || moveTargetingBench;
+
+  const forcedSwapSelf = forcedPending && forcedPending.playerIdx === selfIdx;
+  const forcedSwapOther = forcedPending && forcedPending.playerIdx === otherIdx;
+  const promoSelf = promoPending && promoPending.playerIdx === selfIdx;
+  const promoOther = promoPending && promoPending.playerIdx === otherIdx;
+  // スキマ：カード使用者から見て「相手」のベンチが対象になる
+  const gapTargetIsOther = gapPending && gapPending.playerIdx === selfIdx;
+  const gapTargetIsSelf = gapPending && gapPending.playerIdx === otherIdx;
+  const benchBuffSelf = benchBuffPending && benchBuffPending.playerIdx === selfIdx;
+  const benchBuffOther = benchBuffPending && benchBuffPending.playerIdx === otherIdx;
+
+  const handHtml = selfPlayer.hand.map((c,i)=>renderHandCard(c,i,humanActive && !forcedPending && !moveTargetingBench && !promoPending && !gapPending && !choicePending && !evolvePending && !benchBuffPending,i===state.selectedHandIndex)).join('');
+  const benchOtherHtml = otherPlayer.bench.map((b,i)=>renderBenchSlot(b,false,null,false,otherIdx,i,enemyBenchTargetMode && !!b,forcedSwapOther && !!b,promoOther && !!b,gapTargetIsOther && !!b && b.hp < getMaxHp(b),benchBuffOther && !!b && !benchBuffPending.chosen.includes(i))).join('');
+  const benchSelfHtml = selfPlayer.bench.map((b,i)=>renderBenchSlot(b,selfInteractable,i,ownTargetMode && !!b,selfIdx,i,false,forcedSwapSelf && !!b,promoSelf && !!b,gapTargetIsSelf && !!b && b.hp < getMaxHp(b),benchBuffSelf && !!b && !benchBuffPending.chosen.includes(i))).join('');
+
+
+
+  let pendingMessage = '';
+  if(evolvePending){
+    pendingMessage = `<div class="select-hint">進化させるキャラを選んでください。</div>`;
+  } else if(choicePending){
+    pendingMessage = `<div class="select-hint">${state.players[choicePending.playerIdx].name}はカードを1枚選んでください。</div>`;
+  } else if(benchBuffPending){
+    const remain = benchBuffPending.count - benchBuffPending.chosen.length;
+    pendingMessage = `<div class="select-hint">${state.players[benchBuffPending.playerIdx].name}は対象のベンチをあと${remain}体選んでください。</div>`;
+  } else if(gapPending){
+    pendingMessage = `<div class="select-hint">${state.players[gapPending.playerIdx].name}は入れ替える相手ベンチのキャラ（ダメージを受けているキャラのみ）を選んでください。</div>`;
+  } else if(promoPending){
+    pendingMessage = `<div class="select-hint">${state.players[promoPending.playerIdx].name}はベンチから繰り上げるキャラを選んでください。</div>`;
+  } else if(forcedPending){
+    pendingMessage = `<div class="select-hint">${state.players[forcedPending.playerIdx].name}はメインと入れ替えるベンチのキャラを選んでください。</div>`;
+  } else if(moveTargetingBench){
+    pendingMessage = `<div class="select-hint">相手のベンチの対象をタップしてください</div>`;
+  } else if(hasSelection){
+    pendingMessage = `<div class="select-hint">${enemyTargetMode ? '相手の対象（メイン／ベンチ）をタップしてください' : '対象（メイン／ベンチ）をタップして付けてください'}</div>`;
+  }
+
+  const choiceModalHtml = choicePending ? `
+    <div class="builder-modal card-choice-modal">
+      <div class="builder-modal-box card-choice-box">
+        <div class="builder-modal-header"><h3>${choicePending.options.length}枚から1枚選んでください</h3></div>
+        <div class="character-card-grid">
+          ${choicePending.options.map((c,i)=>{
+            const isChar = !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport;
+            if(!isChar){
+              const label = c.isEnergy ? '霊力エネルギー' : c.isRetreatEnergy ? '交代エネルギー' : c.name;
+              const sub = c.isEnergy || c.isRetreatEnergy ? 'わざ・交代に使うエネルギーカード' : (c.desc || '');
+              return `<div class="character-select-card builder-card choice-option" data-choice-index="${i}" style="--type-color:${TYPE_COLOR[c.type]||'#a8813f'}">
+                <div class="character-select-top"><div class="character-select-name">${label}</div></div>
+                <div class="character-select-desc-row">${sub}</div>
+              </div>`;
+            }
+            const cs = c.cardStage || 'easy';
+            const weak = c.weakness.length ? c.weakness.join('・') : 'なし';
+            const movesHtml = c.moves.map(m=>{
+              const costOrbs = m.cost === 0
+                ? '<span class="orb empty"></span>'
+                : Array.from({length:m.cost},()=>'<span class="orb"></span>').join('');
+              const detail = `${m.element}属性${effectLabel(m.effects)}`;
+              return `<div class="character-select-move">
+                <span class="character-select-cost">${costOrbs}</span>
+                <span class="character-select-move-name">${m.name}<span class="character-select-move-desc">${detail}</span></span>
+                <span class="character-select-dmg">${m.dmg}</span>
+              </div>`;
+            }).join('');
+            return `<div class="character-select-card builder-card choice-option" data-choice-index="${i}" style="--type-color:${TYPE_COLOR[c.type]||'#888'}">
+              <div class="character-select-top">
+                <div class="character-select-name">${c.name}${stageBadge({stage:cs})}</div>
+                <div class="character-select-type">${c.type}</div>
+              </div>
+              <div class="character-select-hp">HP ${c.hp}</div>
+              <div class="character-select-weak">弱点: ${weak}</div>
+              ${c.passive ? `<div class="character-select-passive">✨ ${passiveLabel(c)}</div>` : ''}
+              <div class="character-select-moves builder-card-body">${movesHtml}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>` : '';
+
+  const evolveModalHtml = evolvePending ? (()=>{
+    const player = state.players[state.turn];
+    return `
+    <div class="builder-modal card-choice-modal">
+      <div class="builder-modal-box card-choice-box">
+        <div class="builder-modal-header"><h3>「${evolvePending.card.name}」で進化させるキャラを選んでください</h3></div>
+        <div class="character-card-grid">
+          ${evolvePending.options.map((opt,i)=>{
+            const inst = opt.isMain ? player.main : player.bench[opt.benchIdx];
+            const label = opt.isMain ? `メイン：${inst.card.name}` : `ベンチ：${inst.card.name}`;
+            const maxHp = getMaxHp(inst);
+            return `<div class="character-select-card builder-card choice-option" data-evolve-choice-index="${i}" style="--type-color:${TYPE_COLOR[inst.card.type]||'#a8813f'}">
+              <div class="character-select-top"><div class="character-select-name">${label}</div></div>
+              <div class="character-select-desc-row">HP ${Math.max(0,inst.hp)}/${maxHp}・${STAGE_LABEL[inst.stage||'easy']}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  })() : '';
+
+  app.innerHTML = `
+    <div class="table ${state.logVisible === false ? 'log-hidden' : ''}">
+      <div class="board">
+        ${renderOpponentHandBacks(otherPlayer, selfIdx)}
+        <div class="side">
+          <div class="deck-info">${otherPlayer.name}${state.mode==='online'?' <span class="online-badge">相手</span>':''}<br>山札 ${otherPlayer.deck.length}枚 ／ 手札 ${otherPlayer.hand.length}枚<div class="ko-count">撃破: ${otherPlayer.knockouts||0}/5</div></div>
+          <div class="board-row">
+            ${renderMainSlot(otherPlayer, selfPlayer, false, false, false, enemyTargetMode && !!otherPlayer.main)}
+            <div class="bench-row">${benchOtherHtml}</div>
+          </div>
+        </div>
+        <div class="barrier"><span>結界</span></div>
+        <div class="side">
+          <div class="deck-info">${selfPlayer.name}${state.mode==='online'?' <span class="online-badge">あなた</span>':''}<br>山札 ${selfPlayer.deck.length}枚<div class="ko-count">撃破: ${selfPlayer.knockouts||0}/5</div></div>
+          <div class="board-row">
+            ${renderMainSlot(selfPlayer, otherPlayer, true, attackClickable, ownTargetMode, false)}
+            <div class="bench-row">${benchSelfHtml}</div>
+          </div>
+        </div>
+
+        <div class="hand-row">${handHtml}</div>
+
+        <div class="controls">
+          <button id="endTurnBtn" ${(state.gameOver||state.disconnected||!humanActive||forcedPending||promoPending||gapPending||choicePending||evolvePending||moveTargetingBench||benchBuffPending)?'disabled':''}>ターン終了</button>
+          <button id="toggleLogBtn" class="manual-btn">${state.logVisible === false ? 'ログを表示' : 'ログを隠す'}</button>
+          <button id="openManualBtn" class="manual-btn">説明書</button>
+          <button id="resignBtn" class="resign" ${(state.gameOver||state.disconnected)?'disabled':''}>${state.resignConfirmPending ? 'もう一度押すと投了' : '投了'}</button>
+        </div>
+
+        ${pendingMessage}
+
+        ${state.disconnected
+          ? `<div class="online-disconnect-banner">対戦相手との接続が切れました。ゲームを続行できません。</div>`
+          : (!humanActive && !forcedSwapSelf && !promoSelf)
+            ? (state.mode === 'online'
+                ? `<div class="thinking spinner-dots">相手の番です</div>`
+                : `<div class="thinking">CPU思考中…</div>`)
+            : `<div class="hint">現在のターン：${state.players[state.turn].name}${`（エネルギー${state.energyAttachedThisTurn}/2枚）`}${state.itemAttachedThisTurn?'（持ち物済み）':''}${state.specialUsedThisTurn?'（特殊カード済み）':''}${state.retreatUsedThisTurn?'（交代済み）':''}${attackClickable?'　／　わざをタップで攻撃、ベンチをタップで交代（1ターン1回）、場に同じキャラがいる状態でその手札をタップすると進化':''}</div>`}
+      </div>
+
+      ${state.logVisible === false ? '' : `
+      <div class="log-panel" id="log">
+        <div class="log-title">バトルログ</div>
+        ${state.log.slice(-40).map(l=>`<div>${l}</div>`).join('')}
+      </div>`}
+    </div>
+    ${choiceModalHtml}
+    ${evolveModalHtml}
+    ${renderManualModal()}
+  `;
+
+  const logEl = document.getElementById('log');
+  if(logEl) logEl.scrollTop = logEl.scrollHeight;
+
+  if(state.gameOver){ renderResultModal(); } else { hideResultModal(); }
+
+  broadcastStateIfHost();
+}
+
+function broadcastStateIfHost(){
+  if(state && state.mode === 'online' && netRole === 'host' && conn && conn.open){
+    try{
+      conn.send({ t:'state', state: JSON.parse(JSON.stringify(state)) });
+    }catch(e){ console.error('state broadcast failed', e); }
+  }
+}
+
+function renderResultModal(){
+  const modal = document.getElementById('resultModal');
+  if(!modal) return;
+  const isCpu = state.mode === 'cpu';
+  let bannerText, bannerClass;
+  if(isCpu){
+    bannerText = state.winner === 0 ? 'WIN!!' : 'LOSE...';
+    bannerClass = state.winner === 0 ? 'win' : 'lose';
+  } else {
+    bannerText = `${state.players[state.winner].name} WIN!!`;
+    bannerClass = 'win';
+  }
+  const isOnline = state.mode === 'online';
+  modal.innerHTML = `
+    <div class="result-box ${bannerClass}">
+      <div class="result-banner">${bannerText}</div>
+      <div class="result-sub">${state.players[state.winner].name} の勝利！</div>
+      <div class="controls">
+        ${isOnline ? '' : '<button id="restartBtn">もう一度遊ぶ（同じデッキ）</button>'}
+        <button id="backToMenuBtn" class="resign">${isOnline ? 'メニューに戻る' : 'デッキを組み直す'}</button>
+      </div>
+    </div>`;
+  modal.style.display = 'flex';
+}
+function hideResultModal(){
+  const modal = document.getElementById('resultModal');
+  if(modal) modal.style.display = 'none';
+}
+
+/* =========================================================
+   イベント
+========================================================= */
+const appEl = document.getElementById('app');
+
+function isGuestOnline(){
+  return !!(state && state.mode === 'online' && netRole === 'guest');
+}
+function sendAction(fnName, args){
+  if(conn && conn.open){ conn.send({ t:'action', fn: fnName, args: args }); }
+}
+function act(fnName, args){
+  if(isGuestOnline()){
+    sendAction(fnName, args || []);
+  } else {
+    const f = REMOTE_ACTIONS[fnName];
+    if(f) f.apply(null, args || []);
+  }
+}
+function chooseMoveRequiringTarget(mi){
+  const curPlayer = state.players[state.turn];
+  const mv = curPlayer.main && curPlayer.main.card.moves[mi];
+  if(!mv) return;
+  state.pendingMoveIndex = mi;
+  log(`「${mv.name}」を選択した。相手のベンチの対象をタップしてください。`);
+  render();
+}
+function useMoveWithBenchTarget(mi, benchIdx){
+  state.pendingMoveIndex = null;
+  onUseMove(mi, benchIdx);
+}
+// オンライン対戦でゲスト側から呼び出せる操作のホワイトリスト。
+// ホスト側でこれらを実行し、結果を state ごとゲストへ送り返す。
+const REMOTE_ACTIONS = {
+  onHandCardClick, onUseMove, onTargetClick, onEnemyTargetClick, retreatSwap, endTurn,
+  onResignClick, resolveForcedSwap, resolvePromotion, resolveGapSwap, resolveBenchBuffChoice,
+  resolveCardChoice, resolveEvolveChoice, chooseMoveRequiringTarget, useMoveWithBenchTarget,
+};
+
+appEl.addEventListener('click', (e)=>{
+  const t0 = e.target;
+  if(t0.id === 'toggleLogBtn' && state){ state.logVisible = (state.logVisible === false) ? true : false; render(); return; }
+  if(t0.id === 'openManualBtn'){ toggleManualModal(true); return; }
+  if(t0.matches('[data-close-manual]')){ toggleManualModal(false); return; }
+  if(t0.matches('[data-close-manual-backdrop]')){ toggleManualModal(false); return; }
+  if(t0.id === 'openDiagnosisBtn' && builder){ builder.diagnosisOpen = true; renderBuilder(); return; }
+  if(t0.matches('[data-close-diagnosis]') && builder){ builder.diagnosisOpen = false; renderBuilder(); return; }
+  if(t0.matches('[data-close-diagnosis-backdrop]') && builder){ builder.diagnosisOpen = false; renderBuilder(); return; }
+
+  if(t0.id === 'openDeckSlotsBtn'){ toggleDeckSlotsModal(true); return; }
+  if(t0.matches('[data-close-slots]')){ toggleDeckSlotsModal(false); return; }
+  if(t0.matches('[data-close-slots-backdrop]')){ toggleDeckSlotsModal(false); return; }
+  if(t0.matches('[data-save-slot]') && builder){
+    const slotIndex = parseInt(t0.dataset.saveSlot,10);
+    saveDeckToSlot(slotIndex, builder.selections, `スロット${slotIndex+1}`);
+    renderBuilder();
+    return;
+  }
+  if(t0.matches('[data-load-slot]') && builder){
+    const slotIndex = parseInt(t0.dataset.loadSlot,10);
+    const loaded = loadDeckFromSlot(slotIndex);
+    if(loaded){
+      builder.selections = loaded;
+      builder.slotModalOpen = false;
+      renderBuilder();
+    }
+    return;
+  }
+  if(t0.matches('[data-delete-slot]')){
+    const slotIndex = parseInt(t0.dataset.deleteSlot,10);
+    clearDeckSlot(slotIndex);
+    renderBuilder();
+    return;
+  }
+
+  if(builder){
+    const t = e.target;
+
+    if(t.matches('[data-open-character-filter]')){
+      builder.filterOpen = true;
+      renderBuilder();
+      return;
+    }
+    if(t.matches('[data-close-filter]')){
+      builder.filterOpen = false;
+      renderBuilder();
+      return;
+    }
+    if(t.matches('[data-clear-character-filter]')){
+      builder.charFilter = { types:[], elements:[], weaknesses:[] };
+      builder.filterOpen = false;
+      renderBuilder();
+      return;
+    }
+    if(t.matches('[data-apply-character-filter]')){
+      builder.filterOpen = false;
+      renderBuilder();
+      return;
+    }
+    if(t.matches('input[data-filter-key]')){
+      const key = t.dataset.filterKey;
+      const value = t.dataset.filterValue;
+      const list = builder.charFilter[key];
+      if(t.checked){
+        if(!list.includes(value)) list.push(value);
+      } else {
+        builder.charFilter[key] = list.filter(v=>v !== value);
+      }
+      // 絞り込みモーダル内では即時反映。ただしモーダルは閉じない。
+      renderBuilder();
+      return;
+    }
+    if(t.dataset.char){ adjustCharStage(t.dataset.char, t.dataset.stage, parseInt(t.dataset.delta,10)); return; }
+    if(t.dataset.energyDelta){ adjustEnergy(parseInt(t.dataset.energyDelta,10)); return; }
+    if(t.dataset.retreatEnergyDelta){ adjustRetreatEnergy(parseInt(t.dataset.retreatEnergyDelta,10)); return; }
+    if(t.dataset.item){ adjustItem(t.dataset.item, parseInt(t.dataset.delta,10)); return; }
+    if(t.dataset.special){ adjustSpecial(t.dataset.special, parseInt(t.dataset.delta,10)); return; }
+    if(t.dataset.support){ adjustSupport(t.dataset.support, parseInt(t.dataset.delta,10)); return; }
+    if(t.id === 'autoFillBtn'){ autoFillBuilder(); return; }
+    if(t.id === 'confirmDeckBtn'){ confirmBuilderDeck(); return; }
+    if(t.id === 'backToMenuFromBuilder'){
+      if(builder && builder.mode === 'online'){ cleanupPeer(); }
+      showStartScreen();
+      return;
+    }
+    return;
+  }
+
+  if(onlineUI){
+    const t = e.target;
+    if(t.id === 'onlineHostBtn'){ startHosting(); return; }
+    if(t.id === 'onlineJoinBtn'){ startJoining(); return; }
+    if(t.id === 'joinConnectBtn'){
+      const inputEl = document.getElementById('joinCodeInput');
+      connectToRoom(inputEl ? inputEl.value : '');
+      return;
+    }
+    if(t.id === 'backToMenuFromOnline'){
+      cleanupPeer();
+      onlineUI = null;
+      showStartScreen();
+      return;
+    }
+    return;
+  }
+
+  if(!state){
+    if(e.target.id === 'modeCpu'){ showDifficultyScreen(); return; }
+    if(e.target.id === 'modeHotseat'){ beginDeckBuilding('hotseat'); return; }
+    if(e.target.id === 'modeOnline'){ showOnlineMenu(); return; }
+    if(e.target.id === 'modeSpectator'){ startSpectatorMode(); return; }
+    if(e.target.matches('[data-ai-difficulty]')){ beginDeckBuilding('cpu', e.target.dataset.aiDifficulty); return; }
+    if(e.target.id === 'backToMenuFromDifficulty'){ showStartScreen(); return; }
+    return;
+  }
+
+  if(e.target.id === 'resignBtn'){ act('onResignClick', [getSelfIdx()]); return; }
+
+  if(state.gameOver){
+    if(e.target.id === 'restartBtn' && savedMode !== 'online'){
+      initGame(savedMode, [shuffle(savedDecks[0].slice()), shuffle(savedDecks[1].slice())]);
+    } else if(e.target.id === 'backToMenuBtn'){
+      backToMenuAfterGame();
+    }
+    return;
+  }
+
+  if(state.disconnected) return;
+
+  if(state.forcedSwapPending){
+    const forcedEl = e.target.closest('[data-forced-swap-index]');
+    if(forcedEl){ act('resolveForcedSwap', [parseInt(forcedEl.dataset.forcedSwapIndex,10)]); }
+    return;
+  }
+
+  if(state.promotionPending){
+    const promoEl = e.target.closest('[data-promotion-index]');
+    if(promoEl){ act('resolvePromotion', [parseInt(promoEl.dataset.promotionIndex,10)]); }
+    return;
+  }
+
+  if(state.gapSwapPending){
+    const gapEl = e.target.closest('[data-gap-swap-index]');
+    if(gapEl){ act('resolveGapSwap', [parseInt(gapEl.dataset.gapSwapIndex,10)]); }
+    return;
+  }
+
+  if(state.benchBuffPending){
+    const bbEl = e.target.closest('[data-benchbuff-index]');
+    if(bbEl){ act('resolveBenchBuffChoice', [parseInt(bbEl.dataset.benchbuffIndex,10)]); }
+    return;
+  }
+
+  if(state.cardChoicePending){
+    const choiceEl = e.target.closest('[data-choice-index]');
+    if(choiceEl){ act('resolveCardChoice', [parseInt(choiceEl.dataset.choiceIndex,10)]); }
+    return;
+  }
+
+  if(state.evolveChoicePending){
+    const evoEl = e.target.closest('[data-evolve-choice-index]');
+    if(evoEl){ act('resolveEvolveChoice', [parseInt(evoEl.dataset.evolveChoiceIndex,10)]); }
+    return;
+  }
+
+  if(!isHumanTurnNow()) return;
+
+  if(state.pendingMoveIndex !== null){
+    const enemyBenchEl = e.target.closest('[data-enemy-bench-index]');
+    if(enemyBenchEl){
+      const mi = state.pendingMoveIndex;
+      const benchIdx = parseInt(enemyBenchEl.dataset.enemyBenchIndex,10);
+      act('useMoveWithBenchTarget', [mi, benchIdx]);
+    }
+    return;
+  }
+
+  const handEl = e.target.closest('[data-hand-index]');
+  if(handEl){ act('onHandCardClick', [parseInt(handEl.dataset.handIndex,10)]); return; }
+
+  if(state.selectedHandIndex !== null){
+    const enemyMainEl = e.target.closest('[data-enemy-main-target]');
+    if(enemyMainEl){ act('onEnemyTargetClick', ['main']); return; }
+    const enemyBenchEl = e.target.closest('[data-enemy-bench-index]');
+    if(enemyBenchEl){ act('onEnemyTargetClick', ['bench'+enemyBenchEl.dataset.enemyBenchIndex]); return; }
+    const mainEl = e.target.closest('[data-main-target]');
+    if(mainEl){ act('onTargetClick', ['main']); return; }
+    const benchEl2 = e.target.closest('[data-bench-index]');
+    if(benchEl2){ act('onTargetClick', ['bench'+benchEl2.dataset.benchIndex]); return; }
+    return;
+  }
+
+  const benchEl = e.target.closest('[data-bench-index]');
+  if(benchEl){ act('retreatSwap', [parseInt(benchEl.dataset.benchIndex,10)]); return; }
+
+  if(e.target.id === 'endTurnBtn'){ act('endTurn', []); return; }
+
+  const moveEl = e.target.closest('[data-move-index]');
+  if(moveEl){
+    const mi = parseInt(moveEl.dataset.moveIndex,10);
+    const curPlayer = state.players[state.turn];
+    const mv = curPlayer.main && curPlayer.main.card.moves[mi];
+    if(mv && mv.targetBench){
+      act('chooseMoveRequiringTarget', [mi]);
+    } else {
+      act('onUseMove', [mi]);
+    }
+    return;
+  }
+});
+
+document.getElementById('resultModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'restartBtn' && savedMode !== 'online'){
+    initGame(savedMode, [shuffle(savedDecks[0].slice()), shuffle(savedDecks[1].slice())]);
+  } else if(e.target.id === 'backToMenuBtn'){
+    backToMenuAfterGame();
+  }
+});
+
+function backToMenuAfterGame(){
+  if(state && state.mode === 'online'){ cleanupPeer(); }
+  showStartScreen();
+}
+
+let lastHoverKey = null;
+document.addEventListener('mousemove', (e)=>{
+  if(!state){ if(lastHoverKey!==null){ lastHoverKey=null; hideCardDetail(); } return; }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const benchEl = el ? el.closest('[data-detail-bench]') : null;
+  const handEl = !benchEl && el ? el.closest('[data-detail-index]') : null;
+
+  if(benchEl){
+    const key = 'bench:'+benchEl.dataset.detailBench;
+    if(key !== lastHoverKey){ lastHoverKey = key; showBenchDetail(benchEl.dataset.detailBench); }
+  } else if(handEl){
+    const key = 'hand:'+handEl.dataset.detailIndex;
+    if(key !== lastHoverKey){ lastHoverKey = key; showCardDetail(parseInt(handEl.dataset.detailIndex,10)); }
+  } else if(lastHoverKey !== null){
+    lastHoverKey = null;
+    hideCardDetail();
+  }
+});
+document.addEventListener('mouseleave', ()=>{
+  if(lastHoverKey !== null){ lastHoverKey = null; hideCardDetail(); }
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && document.activeElement && document.activeElement.id === 'joinCodeInput'){
+    connectToRoom(document.activeElement.value);
+  }
+});
+
+(function(){
+  let draft = null;
+  try{
+    draft = loadBuilderDraft();
+    if(draft && !isValidBuilderDraft(draft)){
+      clearBuilderDraft();
+      draft = null;
+    }
+  }catch(e){
+    clearBuilderDraft();
+    draft = null;
+  }
+  try{
+    if(draft){
+      draft.selections = repairBuilderSelections(draft.selections);
+      if(!draft.decks) draft.decks = [null,null];
+      if(typeof draft.playerIdx !== 'number') draft.playerIdx = 0;
+      if(typeof draft.filterOpen !== 'boolean') draft.filterOpen = false;
+      if(!draft.charFilter) draft.charFilter = { types:[], elements:[], weaknesses:[] };
+      builder = draft;
+      if(builderTotal() > 0){
+        // ある程度カードを選び終えている途中経過のみ自動的に再開する。
+        renderBuilder();
+      } else {
+        // 何も選んでいない（初期状態のまま保存された）下書きは再開せず、通常のメニューを表示する。
+        builder = null;
+        clearBuilderDraft();
+        showStartScreen();
+      }
+    } else {
+      showStartScreen();
+    }
+  }catch(e){
+    clearBuilderDraft();
+    showStartScreen();
+  }
+})();
+  </script>
+</body>
+</html>

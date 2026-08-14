@@ -1499,15 +1499,119 @@ function initGame(mode, decks, startingIdx, aiDifficulty){
     state.players.forEach(p=>{ ensureCpuOpeningEasyCards(p, 2); });
   }
 
-  log(isCpu
-    ? `ゲーム開始。${firstIdx===0?'あなた':'CPU'}が先攻です。手札のキャラクターカードをタップしてメインに出しましょう。`
-    : isSpectator
-      ? `観戦モード開始。${state.players[firstIdx].name}が先攻です。`
-      : `ゲーム開始。${state.players[firstIdx].name}が先攻です。手札のキャラクターカードをタップしてメインに出しましょう。`);
+  // 対戦開始時、両者は同時に・相手に見えないようにメインへ出すキャラクターを選ぶ。
+  state.openingPending = { placed:[false,false], activeSeat:0, awaitingHandoff:false };
+  log('ゲーム開始。まずは両者が同時に、相手に見えないようメインへ出すキャラクターを選びます。');
+
+  // AI（CPU）が担当する側は内部で即座に選択する（画面には表示しないので人間側にはバレない）
+  state.players.forEach((p,pi)=>{
+    if(isAiControlled(pi)) aiChooseOpeningMain(pi);
+  });
+
   render();
-  if((state.mode === 'cpu' && firstIdx === 1) || state.mode === 'spectator'){
-    if(!state.gameOver){ aiActingIdx = firstIdx; aiTakeTurn(); }
+}
+
+/* =========================================================
+   開始時の「同時に伏せてメインを出す」フェーズ
+   ------------------------------------------------------------
+   ・両者が相手に見えない状態でメインに出すキャラクターを選ぶ。
+   ・両者が選び終わった時点で初めて公開し、通常通り先攻から1ターン目が始まる。
+========================================================= */
+function aiChooseOpeningMain(playerIdx){
+  const player = state.players[playerIdx];
+  const candidates = player.hand
+    .map((c,i)=>({ c, i }))
+    .filter(o => !o.c.isEnergy && !o.c.isRetreatEnergy && !o.c.isItem && !o.c.isSpecial && !o.c.isSupport && (o.c.cardStage||'easy') === 'easy');
+  if(candidates.length === 0) return; // マリガンにより通常は保証される
+  let best = candidates[0];
+  candidates.forEach(o=>{ if(o.c.hp > best.c.hp) best = o; });
+  chooseOpeningMain(playerIdx, best.i);
+}
+
+function chooseOpeningMain(playerIdx, handIndex){
+  if(!state.openingPending || state.openingPending.placed[playerIdx]) return;
+  const player = state.players[playerIdx];
+  const card = player.hand[handIndex];
+  if(!card || card.isEnergy || card.isRetreatEnergy || card.isItem || card.isSpecial || card.isSupport) return;
+  if((card.cardStage||'easy') !== 'easy') return;
+  player.main = { card:card, hp:card.hp, energy:0, item:null, maxHpBonus:0, status:null, stage:'easy', blockedThisTurn:true };
+  player.hand.splice(handIndex,1);
+  state.openingPending.placed[playerIdx] = true;
+
+  if(state.mode === 'hotseat' && !state.openingPending.placed[1-playerIdx]){
+    // ホットシート：まだ相手が選んでいなければ、画面の受け渡し確認を挟んでから相手の番にする
+    state.openingPending.awaitingHandoff = true;
+    state.openingPending.activeSeat = 1 - playerIdx;
   }
+
+  checkOpeningComplete();
+}
+
+function confirmOpeningHandoff(){
+  if(!state.openingPending) return;
+  state.openingPending.awaitingHandoff = false;
+  render();
+}
+
+function checkOpeningComplete(){
+  const op = state.openingPending;
+  if(!op) return;
+  if(op.placed[0] && op.placed[1]){
+    log(`${lname(state.players[0].name)}は「${state.players[0].main.card.name}」を、${lname(state.players[1].name)}は「${state.players[1].main.card.name}」をメインに出した！`);
+    state.openingPending = null;
+    log(`${state.players[state.turn].name}が先攻です。`);
+    render();
+    if((state.mode === 'cpu' && state.turn === 1) || state.mode === 'spectator'){
+      if(!state.gameOver){ aiActingIdx = state.turn; aiTakeTurn(); }
+    }
+    return;
+  }
+  render();
+}
+
+function renderOpeningPlacement(){
+  const app = document.getElementById('app');
+  const op = state.openingPending;
+
+  if(state.mode === 'spectator'){
+    app.innerHTML = `<div class="table menu-screen"><p class="spinner-dots">両者がメインキャラクターを選んでいます</p></div>`;
+    return;
+  }
+
+  if(state.mode === 'hotseat' && op.awaitingHandoff){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p>「${state.players[op.activeSeat].name}」に画面を渡してください</p>
+        <p class="small">相手に見られないようにしてから、準備ができたらボタンを押してください。</p>
+        <div class="controls">
+          <button id="openingHandoffReadyBtn">準備完了・見せて</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const viewerIdx = (state.mode === 'hotseat') ? op.activeSeat : getSelfIdx();
+  const player = state.players[viewerIdx];
+
+  if(op.placed[viewerIdx]){
+    app.innerHTML = `
+      <div class="table menu-screen">
+        <p class="spinner-dots">相手の準備を待っています</p>
+      </div>`;
+    return;
+  }
+
+  const handHtml = player.hand.map((c,i)=>{
+    const isEasyChar = !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport && (c.cardStage||'easy') === 'easy';
+    return renderHandCard(c, i, isEasyChar, false);
+  }).join('');
+
+  app.innerHTML = `
+    <div class="table">
+      <p style="text-align:center;color:var(--gold-soft);margin:14px 0 4px;">${player.name}：最初にメインへ出すキャラクターを選んでください</p>
+      <p class="hint">（easy段階のキャラクターのみ選べます。両者が選び終わるまでお互いに見えません）</p>
+      <div class="hand-row">${handHtml}</div>
+    </div>`;
 }
 
 function isHumanTurnNow(){
@@ -4084,6 +4188,9 @@ function renderCardDetailContent(card){
 }
 
 function getSelfPlayer(){
+  if(state.openingPending && state.mode === 'hotseat'){
+    return state.players[state.openingPending.activeSeat];
+  }
   return state.players[getSelfIdx()];
 }
 
@@ -4153,6 +4260,7 @@ function renderOpponentHandBacks(player, viewerIdx){
 }
 
 function render(){
+  if(state.openingPending){ renderOpeningPlacement(); broadcastStateIfHost(); return; }
   const app = document.getElementById('app');
   const selfIdx = getSelfIdx();
   const otherIdx = 1 - selfIdx;
@@ -4210,7 +4318,7 @@ function render(){
     pendingMessage = `<div class="select-hint">${enemyTargetMode ? '相手の対象（メイン／ベンチ）をタップしてください' : '対象（メイン／ベンチ）をタップして付けてください'}</div>`;
   }
 
-  const choiceModalHtml = choicePending ? `
+  const choiceModalHtml = (choicePending && choicePending.playerIdx === selfIdx) ? `
     <div class="builder-modal card-choice-modal">
       <div class="builder-modal-box card-choice-box">
         <div class="builder-modal-header"><h3>${choicePending.options.length}枚から1枚選んでください</h3></div>
@@ -4253,7 +4361,7 @@ function render(){
       </div>
     </div>` : '';
 
-  const evolveModalHtml = evolvePending ? (()=>{
+  const evolveModalHtml = (evolvePending && state.turn === selfIdx) ? (()=>{
     const player = state.players[state.turn];
     return `
     <div class="builder-modal card-choice-modal">
@@ -4336,7 +4444,18 @@ function render(){
 function broadcastStateIfHost(){
   if(state && state.mode === 'online' && netRole === 'host' && conn && conn.open){
     try{
-      conn.send({ t:'state', state: JSON.parse(JSON.stringify(state)) });
+      const payload = JSON.parse(JSON.stringify(state));
+      if(payload.openingPending){
+        // ゲスト（player1）視点の送信データからは、ホスト（player0）がまだ内緒で
+        // 選んでいる最中のメインキャラを取り除く（両者が選び終わるまで見せない）。
+        payload.players[0].main = null;
+      }
+      if(payload.cardChoicePending && payload.cardChoicePending.playerIdx === 0){
+        // 偵察の札・幻想郷の導きなど、山札から見た候補カードはホスト本人にしか見せない。
+        // ゲスト側には枚数だけ分かる形にして、中身とdata-choice-indexでの選択を封じる。
+        payload.cardChoicePending = { playerIdx: 0, options: [], hiddenCount: payload.cardChoicePending.options.length };
+      }
+      conn.send({ t:'state', state: payload });
     }catch(e){ console.error('state broadcast failed', e); }
   }
 }
@@ -4345,15 +4464,19 @@ function renderResultModal(){
   const modal = document.getElementById('resultModal');
   if(!modal) return;
   const isCpu = state.mode === 'cpu';
+  const isOnline = state.mode === 'online';
   let bannerText, bannerClass;
   if(isCpu){
     bannerText = state.winner === 0 ? 'WIN!!' : 'LOSE...';
     bannerClass = state.winner === 0 ? 'win' : 'lose';
+  } else if(isOnline){
+    const iWon = getSelfIdx() === state.winner;
+    bannerText = iWon ? 'YOU WIN!!' : 'YOU LOSE...';
+    bannerClass = iWon ? 'win' : 'lose';
   } else {
     bannerText = `${state.players[state.winner].name} WIN!!`;
     bannerClass = 'win';
   }
-  const isOnline = state.mode === 'online';
   modal.innerHTML = `
     <div class="result-box ${bannerClass}">
       <div class="result-banner">${bannerText}</div>
@@ -4407,6 +4530,7 @@ const REMOTE_ACTIONS = {
   onHandCardClick, onUseMove, onTargetClick, onEnemyTargetClick, retreatSwap, endTurn,
   onResignClick, resolveForcedSwap, resolvePromotion, resolveGapSwap, resolveBenchBuffChoice,
   resolveCardChoice, resolveEvolveChoice, chooseMoveRequiringTarget, useMoveWithBenchTarget,
+  chooseOpeningMain,
 };
 
 appEl.addEventListener('click', (e)=>{
@@ -4523,6 +4647,19 @@ appEl.addEventListener('click', (e)=>{
     if(e.target.id === 'modeSpectator'){ startSpectatorMode(); return; }
     if(e.target.matches('[data-ai-difficulty]')){ beginDeckBuilding('cpu', e.target.dataset.aiDifficulty); return; }
     if(e.target.id === 'backToMenuFromDifficulty'){ showStartScreen(); return; }
+    return;
+  }
+
+  if(state.openingPending){
+    const op = state.openingPending;
+    if(state.mode === 'hotseat' && op.awaitingHandoff){
+      if(e.target.id === 'openingHandoffReadyBtn'){ confirmOpeningHandoff(); }
+      return;
+    }
+    const viewerIdx = (state.mode === 'hotseat') ? op.activeSeat : getSelfIdx();
+    if(op.placed[viewerIdx]) return; // 選択済み・相手を待っている最中
+    const handEl = e.target.closest('[data-hand-index]');
+    if(handEl){ act('chooseOpeningMain', [viewerIdx, parseInt(handEl.dataset.handIndex,10)]); }
     return;
   }
 

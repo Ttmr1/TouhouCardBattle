@@ -237,6 +237,13 @@
     border-bottom:1px solid rgba(217,182,78,.25);
     padding-bottom:4px;
   }
+  .log-deck-count{
+    font-size:11px;
+    color:var(--mist);
+    margin-bottom:6px;
+    padding-bottom:4px;
+    border-bottom:1px dashed rgba(255,255,255,.12);
+  }
   .log-name{ color:#c896f5; font-weight:700; }
   .log-dmg{ color:#ff5c5c; font-weight:800; }
   .log-heal{ color:#7fe0a0; font-weight:800; }
@@ -741,7 +748,6 @@
 </head>
 <body>
   <h1>幻想結界カード対戦</h1>
-  <div class="subtitle">東方風・簡易TCGプロトタイプ（メイン＋ベンチ制）</div>
   <div id="app"></div>
   <div id="cardDetailOverlay" class="card-detail-overlay"></div>
   <div id="resultModal" class="result-modal"></div>
@@ -943,7 +949,7 @@ function renderOnlineUI(){
   if(onlineUI.phase === 'menu'){
     app.innerHTML = `
       <div class="table menu-screen">
-        <p>オンライン対戦（無料・サーバー不要のP2P通信です）</p>
+        <p>オンライン対戦</p>
         <div class="controls">
           <button id="onlineHostBtn">部屋を作る（ホスト）</button>
           <button id="onlineJoinBtn">合言葉で参加する</button>
@@ -1442,6 +1448,13 @@ function dealInitialHandWithMulligan(player){
   return false;
 }
 
+function dealInitialHandSimple(player){
+  // CPU（AI）は引き直しをせず、ランダムに5枚引いた後 ensureCpuOpeningEasyCards で
+  // easyキャラクターが2枚になるよう手札と山札の間でカードを交換する。
+  player.hand = [];
+  for(let i=0;i<5;i++){ if(player.deck.length) player.hand.push(player.deck.pop()); }
+}
+
 function ensureCpuOpeningEasyCards(player, minimumEasy=2){
   const isEasy = c => c && !c.isEnergy && !c.isRetreatEnergy && !c.isItem && !c.isSpecial && !c.isSupport && (c.cardStage || 'easy') === 'easy';
   let easyCount = player.hand.filter(isEasy).length;
@@ -1475,6 +1488,7 @@ function initGame(mode, decks, startingIdx, aiDifficulty){
     log:[],
     gameOver:false,
     winner:null,
+    winReason:null,
     energyAttachedThisTurn:0,
     itemAttachedThisTurn:false,
     specialUsedThisTurn:false,
@@ -1497,13 +1511,17 @@ function initGame(mode, decks, startingIdx, aiDifficulty){
 
   let loserIdx = null;
   state.players.forEach((p,pi)=>{
-    const ok = dealInitialHandWithMulligan(p);
-    if(!ok && !isAiControlled(pi)) loserIdx = pi;
+    if(isAiControlled(pi)){
+      dealInitialHandSimple(p);
+    } else {
+      const ok = dealInitialHandWithMulligan(p);
+      if(!ok) loserIdx = pi;
+    }
   });
 
   if(loserIdx !== null){
     log(`${lname(state.players[loserIdx].name)}は3回引き直してもeasyキャラクターを引けなかったため敗北！`);
-    endGame(1-loserIdx);
+    endGame(1-loserIdx, 'mulliganFail');
     return;
   }
 
@@ -1659,7 +1677,7 @@ function processStatusTick(idx, resumeFn){
         const attacker = state.players[sourceIdx];
         attacker.knockouts = (attacker.knockouts||0) + 1;
         log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
-        if(attacker.knockouts >= 5){ endGame(sourceIdx); return 'ended'; }
+        if(attacker.knockouts >= 5){ endGame(sourceIdx, 'knockout'); return 'ended'; }
       }
       const hasBench = player.bench.some(b=>b!==null);
       if(hasBench){
@@ -1729,12 +1747,12 @@ function checkCharacterPresenceCondition(idx){
 
   if((current.turnsStarted||0) >= 1 && !hasAnyCharacter(current)){
     log(`${lname(current.name)}はメインにもベンチにもキャラクターがいないため敗北した！`);
-    endGame(1-idx);
+    endGame(1-idx, 'noCharacters');
     return true;
   }
   if((opponent.turnsStarted||0) >= 1 && !hasAnyCharacter(opponent)){
     log(`${lname(opponent.name)}はメインにもベンチにもキャラクターがいないため敗北した！`);
-    endGame(idx);
+    endGame(idx, 'noCharacters');
     return true;
   }
   return false;
@@ -1751,7 +1769,7 @@ function processFieldPassives(player, idx){
   fielded.forEach(inst=>{
     const passive = inst.card.passive;
     if(!passive) return;
-    if(passive.type === 'selfHealPerTurn'){
+    if(passive.type === 'selfHealPerTurn' && inst === player.main){
       const before = inst.hp;
       healInstance(inst, passive.amount);
       if(inst.hp > before) log(`${lname(inst.card.name)}は自分の能力でHPを${lheal(inst.hp-before)}した！`);
@@ -1801,12 +1819,12 @@ function continueStartTurnAfterStatus(idx){
   }
   if(player.deck.length === 0){
     log(`${lname(player.name)}の山札が尽きた…`);
-    endGame(1-idx);
+    endGame(1-idx, 'deckOut');
     return;
   }
   const drawn = player.deck.pop();
   player.hand.push(drawn);
-  log(`--- ${lname(player.name)}のターン --- ${drawn.isEnergy ? '霊力エネルギー' : 'カード'}を引いた。`);
+  log(`--- ${lname(player.name)}のターン ---（山札：${player.deck.length}枚）${drawn.isEnergy ? '霊力エネルギー' : 'カード'}を引いた。`);
   processFieldPassives(player, idx);
   state.energyAttachedThisTurn = 0;
   state.itemAttachedThisTurn = false;
@@ -1853,9 +1871,10 @@ function endTurn(){
   startTurn(nextIdx);
 }
 
-function endGame(winnerIdx){
+function endGame(winnerIdx, reason){
   state.gameOver = true;
   state.winner = winnerIdx;
+  state.winReason = reason || 'unknown';
   log(`🎉 ${lname(state.players[winnerIdx].name)}の勝利！`);
   render();
 }
@@ -1872,7 +1891,7 @@ function onResignClick(actingIdx){
   // ここで getSelfIdx() を呼ぶとホスト自身の視点になってしまい誤判定するので使わない。
   const selfIdx = (typeof actingIdx === 'number') ? actingIdx : getSelfIdx();
   log(`${lname(state.players[selfIdx].name)}が投了した。`);
-  endGame(1-selfIdx);
+  endGame(1-selfIdx, 'resign');
 }
 
 function startCardChoice(player, playerIdx, options){
@@ -2251,7 +2270,7 @@ function resolveNoTargetCard(player, card){
       }
     });
     log(`${useLabel} → ${hitNames.length ? `${lname(opponent.name)}のベンチ全員に${card.amount}ダメージ（${hitNames.join('、')}）` : `${lname(opponent.name)}のベンチは空だった`}`);
-    if(player.knockouts >= 5){ endGame(playerIdx); }
+    if(player.knockouts >= 5){ endGame(playerIdx, 'knockout'); }
   } else if(t === 'kamikakushi'){
     const validIdxs = player.bench.map((b,i)=> (b && b.hp >= getMaxHp(b)/2) ? i : null).filter(i=>i!==null);
     if(validIdxs.length === 0){
@@ -2471,7 +2490,7 @@ function checkDeathCurseRetaliation(instance, deceasedPlayerIdx){
     const deceasedPlayer = state.players[deceasedPlayerIdx];
     deceasedPlayer.knockouts = (deceasedPlayer.knockouts||0) + 1;
     log(`（${lname(deceasedPlayer.name)}の撃破数: ${deceasedPlayer.knockouts}/5）`);
-    if(deceasedPlayer.knockouts >= 5){ endGame(deceasedPlayerIdx); return; }
+    if(deceasedPlayer.knockouts >= 5){ endGame(deceasedPlayerIdx, 'knockout'); return; }
     const promoIdx = attacker.bench.findIndex(b=>b!==null);
     if(promoIdx >= 0){
       attacker.main = attacker.bench[promoIdx];
@@ -2602,7 +2621,7 @@ function damageMainAndCheck(defender, defenderIdx, dmg, attacker, attackerIdx){
   attacker.knockouts = (attacker.knockouts||0) + 1;
   log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
   checkDeathCurseRetaliation(dyingInst, defenderIdx);
-  if(attacker.knockouts >= 5){ endGame(attackerIdx); return true; }
+  if(attacker.knockouts >= 5){ endGame(attackerIdx, 'knockout'); return true; }
   const hasBench = defender.bench.some(b=>b!==null);
   if(hasBench){
     const pending = triggerPromotion(defenderIdx, ()=>endTurn());
@@ -2622,7 +2641,7 @@ function damageBenchAndCheck(defender, benchIdx, dmg, attacker, attackerIdx){
   attacker.knockouts = (attacker.knockouts||0) + 1;
   log(`（${lname(attacker.name)}の撃破数: ${attacker.knockouts}/5）`);
   checkDeathCurseRetaliation(inst, 1-attackerIdx);
-  if(attacker.knockouts >= 5){ endGame(attackerIdx); return true; }
+  if(attacker.knockouts >= 5){ endGame(attackerIdx, 'knockout'); return true; }
   return false;
 }
 
@@ -2857,12 +2876,12 @@ function onUseMove(moveIndex, benchTargetIndex){
     } else if(ef.type === 'preventRetreat'){
       if(opponent.main){ applyStatus(opponent.main, 'retreatLock', state.turn, undefined, ef.turns); }
     } else if(ef.type === 'revealHandCards'){
-      const pool = [...opponent.hand];
+      const revealerIdx = state.turn;
+      const pool = opponent.hand.map((c,i)=>i).filter(i=>!opponent.hand[i]._revealedToPlayerIdx || opponent.hand[i]._revealedToPlayerIdx !== revealerIdx);
+      shuffle(pool);
+      const targetIdxs = pool.slice(0, Math.min(ef.count, opponent.hand.length));
       const shownNames = [];
-      for(let i=0;i<Math.min(ef.count,pool.length);i++){
-        const ridx = Math.floor(Math.random()*pool.length);
-        shownNames.push(pool.splice(ridx,1)[0].name);
-      }
+      targetIdxs.forEach(i=>{ opponent.hand[i]._revealedToPlayerIdx = revealerIdx; shownNames.push(opponent.hand[i].name); });
       log(shownNames.length ? `${lname(opponent.name)}の手札を覗き見た：${shownNames.join('、')}` : `${lname(opponent.name)}の手札は空だった。`);
     } else if(ef.type === 'discardRandomHandCard'){
       const discardCount = ef.amount || 1;
@@ -2884,7 +2903,7 @@ function onUseMove(moveIndex, benchTargetIndex){
     }
   });
 
-  if(player.knockouts >= 5){ endGame(state.turn); return; }
+  if(player.knockouts >= 5){ endGame(state.turn, 'knockout'); return; }
 
   // 反動などで自分のメインが倒れていないか確認
   if(player.main && player.main.hp <= 0){
@@ -2895,7 +2914,7 @@ function onUseMove(moveIndex, benchTargetIndex){
     opponent.knockouts = (opponent.knockouts||0) + 1;
     log(`（${lname(opponent.name)}の撃破数: ${opponent.knockouts}/5）`);
     checkDeathCurseRetaliation(dyingSelfInst, state.turn);
-    if(opponent.knockouts >= 5){ endGame(1-state.turn); return; }
+    if(opponent.knockouts >= 5){ endGame(1-state.turn, 'knockout'); return; }
     const hasSelfBench = player.bench.some(b=>b!==null);
     if(hasSelfBench){
       const pending = triggerPromotion(state.turn, ()=>endTurn());
@@ -2910,7 +2929,7 @@ function onUseMove(moveIndex, benchTargetIndex){
     opponent.discard.push(targetInstance.card);
     player.knockouts = (player.knockouts||0) + 1;
     log(`（${lname(player.name)}の撃破数: ${player.knockouts}/5）`);
-    if(player.knockouts >= 5){ endGame(state.turn); return; }
+    if(player.knockouts >= 5){ endGame(state.turn, 'knockout'); return; }
 
     checkDeathCurseRetaliation(targetInstance, 1-state.turn);
     if(effectiveTargetBench){
@@ -3882,15 +3901,12 @@ function renderBuilder(){
   let charTotal = 0, easyTotal = 0;
   Object.values(sel.chars).forEach(stages=>{ STAGE_ORDER.forEach(st=>{ charTotal += stages[st]; }); easyTotal += stages.easy; });
   const exact = total === DECK_SIZE;
-  const warn2 = charTotal < 3 ? `<div class="warn">キャラクターカードは3枚以上推奨です（イージーがないとメインやベンチに出せません）</div>` : '';
   const warn3 = easyTotal === 0 ? `<div class="warn">イージーのカードが1枚もありません。これでは場にキャラを出せません。</div>` : '';
 
   app.innerHTML = `
     <div class="table builder">
       <h2 class="builder-title">${playerLabel}のデッキ編成</h2>
       <div class="builder-summary ${exact?'summary-ok':'warn'}">合計 ${total} / ${DECK_SIZE} 枚${exact ? '（ちょうどです！）' : `（あと${DECK_SIZE-total}枚必要）`}</div>
-      <div class="builder-save-note">※ここまでの編成内容は自動保存されます（更新しても失われません）</div>
-      ${warn2}
       ${warn3}
 
       <div class="builder-section-title">キャラクターカード（easyは4枚まで、normal／hard／lunaticは各3枚まで）</div>
@@ -3974,7 +3990,7 @@ function passiveLabel(card){
   const p = card.passive;
   if(!p) return '';
   if(p.type === 'statusImmune') return '特性：場にいる間、状態異常（やけど・凍結・道連れの呪い）にならない';
-  if(p.type === 'selfHealPerTurn') return `特性：場にいる間、毎ターンHPを${p.amount}回復`;
+  if(p.type === 'selfHealPerTurn') return `特性：メインにいるとき、毎ターンHPを${p.amount}回復`;
   if(p.type === 'hpBonusIfAllyPresent'){
     const ally = CHAR_DB.find(c=>c.id===p.allyId);
     return `特性：場に${ally?ally.name:p.allyId}がいる間、最大HP+${p.amount}`;
@@ -4578,6 +4594,19 @@ function broadcastStateIfHost(){
   }
 }
 
+function winReasonText(winnerIdx, reason){
+  const winnerName = state.players[winnerIdx].name;
+  const loserName = state.players[1-winnerIdx].name;
+  switch(reason){
+    case 'knockout': return `${winnerName}が相手のキャラクターを5体撃破した`;
+    case 'noCharacters': return `${loserName}の場にキャラクターがいなくなった`;
+    case 'deckOut': return `${loserName}の山札が尽きた`;
+    case 'mulliganFail': return `${loserName}は3回引き直してもeasyキャラクターを引けなかった`;
+    case 'resign': return `${loserName}が投了した`;
+    default: return `${winnerName} の勝利！`;
+  }
+}
+
 function renderResultModal(){
   const modal = document.getElementById('resultModal');
   if(!modal) return;
@@ -4598,7 +4627,7 @@ function renderResultModal(){
   modal.innerHTML = `
     <div class="result-box ${bannerClass}">
       <div class="result-banner">${bannerText}</div>
-      <div class="result-sub">${state.players[state.winner].name} の勝利！</div>
+      <div class="result-sub">${winReasonText(state.winner, state.winReason)}</div>
       ${resultModalLogVisible ? `
       <div class="log-panel result-modal-log" id="resultModalLog">
         <div class="log-title">バトルログ</div>

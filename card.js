@@ -343,7 +343,7 @@ const CHAR_DB = [
     ],
   },
   {
-    id:'raiko', name:'堀川雷鼓', type:'鬼', hp:215, weakness:['水','幽霊'],
+    id:'raiko', name:'堀川雷鼓', type:'神', hp:215, weakness:['水','幽霊'],
     moves:[
       { name:'暴れ独楽',           element:'無', cost:0, dmg:26 },
       { name:'弾む太鼓の達人',     element:'岩', cost:1, dmg:0,  effects:[{ type:'multiHitRandom', hits:2, dmgPerHit:22, scalePerStage:2 }] },
@@ -361,11 +361,11 @@ const CHAR_DB = [
   },
   {
     id:'sumireko', name:'宇佐見菫子', type:'人間', hp:208, weakness:['闇'],
-    passive:{ type:'chanceAttachEnergyIfMain', chance:1/3 },
+    passive:{ type:'chanceAttachEnergyIfMain', chance:0.25 },
     moves:[
-      { name:'サイコプロージョン',           element:'水', cost:0, dmg:14, effects:[{ type:'revealHandCards', count:2 }] },
-      { name:'現し世のオカルティシャン',     element:'無', cost:1, dmg:55 },
-      { name:'深秘のエソテリックセブン',     element:'氷', cost:2, dmg:66, effects:[{ type:'discardRandomHandCard', amount:2 }] },
+      { name:'サイコプロージョン',           element:'水', cost:0, dmg:18, effects:[{ type:'revealHandCards', count:2 }] },
+      { name:'現し世のオカルティシャン',     element:'無', cost:1, dmg:48 },
+      { name:'深秘のエソテリックセブン',     element:'氷', cost:2, dmg:59, effects:[{ type:'discardRandomHandCard', amount:2 }] },
     ],
   },
   {

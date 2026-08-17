@@ -49,7 +49,7 @@ const CHAR_DB = [
     id:'marisa', name:'霧雨魔理沙', type:'人間', hp:154, weakness:[],
     passive:{ type:'selfHealPerTurn', amount:5 },
     moves:[
-      { name:'ミルキーウェイ',        element:'星', cost:0, dmg:21 },
+      { name:'ミルキーウェイ',        element:'星', cost:0, dmg:19, effects:[{ type:'bonusVsType', targetType:'妖怪', amount:10 }] },
       { name:'スターライトタイフーン', element:'光', cost:1, dmg:40 },
       { name:'マスタースパーク',      element:'光', cost:2, dmg:80, effects:[{ type:'recoil', amount:10 }] },
     ],
@@ -371,7 +371,7 @@ const CHAR_DB = [
   {
     id:'sagume', name:'稀神サグメ', type:'月人', hp:204, weakness:['人間','火'],
     moves:[
-      { name:'鳥合の逆呪',           element:'無', cost:1, dmg:52, effects:[{ type:'reverseWeakness', turns:2 }] },
+      { name:'鳥合の逆呪',           element:'無', cost:1, dmg:52, effects:[{ type:'reverseWeakness', turns:2 }, { type:'ignoreWeakness' }] },
       { name:'神々の弾冠',           element:'木', cost:1, dmg:43, effects:[{ type:'becomeTypeIfWeak', targetSpecies:'神' }] },
       { name:'神々の光り輝く弾冠',   element:'光', cost:2, dmg:67, effects:[{ type:'becomeTypeIfWeak', targetSpecies:'神' }, { type:'benchBonusVsWeakness', targetWeakness:'神', amount:30 }] },
     ],

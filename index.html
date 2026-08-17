@@ -274,7 +274,14 @@
   .result-box.lose .result-banner{ color:var(--vermilion); text-shadow:0 0 20px rgba(192,57,43,.4); }
   .result-sub{ margin-top:10px; font-size:14px; color:#4a3f30; }
   .result-box .controls{ margin-top:18px; }
-  .result-modal-log{ margin-top:16px; max-height:240px; min-height:120px; text-align:left; }
+  .result-modal-log{
+    margin-top:16px;
+    max-height:240px;
+    min-height:120px;
+    text-align:left;
+    background:rgba(10,10,16,.92);
+    border:1px solid rgba(255,255,255,.1);
+  }
 
   /* ---- hand ---- */
   .opponent-hand-row{
@@ -467,6 +474,7 @@
     background:rgba(0,0,0,.78);
   }
   .builder-modal.filter-modal{ z-index:1100; }
+  .builder-modal.result-save-modal{ z-index:1200; }
   .builder-modal-box{
     width:min(1050px,96vw);
     max-height:90vh;
@@ -542,6 +550,35 @@
     margin-bottom:8px;
   }
   .filter-result-count{ font-size:12px; color:#6b5d4a; font-weight:700; }
+  .char-section-controls{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .char-sort-controls{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .char-sort-label{ font-size:12px; color:#6b5d4a; font-weight:700; }
+  .char-sort-controls button{
+    font-size:11px;
+    padding:4px 9px;
+    border-radius:14px;
+    border:1px solid var(--gold);
+    background:rgba(255,255,255,.5);
+    color:#4a3f30;
+    cursor:pointer;
+  }
+  .char-sort-controls button.sort-active{
+    background:var(--gold);
+    color:#2b2320;
+    font-weight:700;
+  }
   .char-modal-list{
     max-height:68vh;
     overflow-y:auto;
@@ -1210,7 +1247,8 @@ function beginDeckBuilding(mode, aiDifficulty){
     decks:[null,null],
     selections:freshSelections(),
     filterOpen:false,
-    charFilter:{ types:[], elements:[], weaknesses:[] },
+    charFilter:{ types:[], elements:[], weaknesses:[], effectTypes:[] },
+    charSort:'series',
     slotModalOpen:false
   };
   if(mode === 'cpu'){
@@ -1402,9 +1440,9 @@ function confirmBuilderDeck(){
   }
   if(builder.mode === 'hotseat' && builder.playerIdx === 0){
     builder.playerIdx = 1;
-    builder.selections = freshSelections();
+    builder.selections = (builder.prefillSelections && builder.prefillSelections[1]) ? builder.prefillSelections[1] : freshSelections();
     builder.filterOpen = false;
-    builder.charFilter = { types:[], elements:[], weaknesses:[] };
+    builder.charFilter = { types:[], elements:[], weaknesses:[], effectTypes:[] };
     renderBuilder();
   } else {
     const mode = builder.mode;
@@ -1842,6 +1880,7 @@ function continueStartTurnAfterStatus(idx){
 
 function endTurn(){
   if(state.gameOver) return;
+  log(''); // ターンの区切りとして空行を追加
   const endingIdx = state.turn;
   const nextIdx = 1-endingIdx;
   const endingPlayer = state.players[endingIdx];
@@ -2583,7 +2622,7 @@ function computeDamage(instance, opponentInstance, moveIndex, overrideElement, i
     if(ef.type === 'bonusIfFullHp' && opponentInstance.hp >= getMaxHp(opponentInstance)) dmg += ef.amount;
     if(ef.type === 'bonusIfSelfFullHp' && instance.hp >= getMaxHp(instance)) dmg += ef.amount;
     if(ef.type === 'flatBonusDamage') dmg += ef.amount;
-    if(ef.type === 'bonusIfWeakness' && opponentInstance.card.weakness.includes(ef.targetWeakness)) dmg += ef.amount;
+    if(ef.type === 'bonusIfWeakness' && isMainTarget && opponentInstance.card.weakness.includes(ef.targetWeakness)) dmg += ef.amount;
     if(ef.type === 'bonusIfOpponentHigherHp' && opponentInstance.hp > instance.hp) dmg += ef.amount;
     if(ef.type === 'bonusIfOpponentHpAtLeast' && opponentInstance.hp >= ef.threshold) dmg += ef.amount;
   });
@@ -3484,12 +3523,102 @@ function getCharacterMoveElements(c){
   return [...set];
 }
 
+const EFFECT_TYPE_LABELS = {
+  bonusVsType: '特定種族に追加ダメージ',
+  benchBonusVsType: '敵ベンチの特定種族に追加ダメージ',
+  flatBonusDamage: '敵ベンチの1体に固定ダメージ',
+  selfBenchDamage: '自分のベンチ全体にダメージ',
+  secondaryBenchDamageRandom: '敵ベンチのランダムな1体にダメージ',
+  drawCardsEqualToKnockouts: '撃破数と同じ枚数のカードを引く',
+  selfGiveEnergy: '自分に霊力エネルギー付与',
+  selfGiveRetreatEnergy: '自分に交代エネルギー付与',
+  bonusIfOpponentHigherHp: '相手の体力が多いなら追加ダメージ',
+  bonusIfOpponentHpAtLeast: '相手の体力が一定以上なら追加ダメージ',
+  benchDamage: '敵ベンチ全員にダメージ',
+  selfStatus: '自分に状態異常を付与',
+  inflictStatus: '相手に状態異常を付与',
+  recoil: '自分に反動ダメージ',
+  shield: '結界付与',
+  healBench: 'ベンチのキャラを回復',
+  halfDamageNext: '次に受けるダメージを半減',
+  benchGiveEnergy: 'ベンチに霊力エネルギー付与',
+  benchGiveRetreatEnergy: 'ベンチに交代エネルギー付与',
+  addElement: '属性追加',
+  randomElement: '属性ランダム化',
+  ignoreWeakness: '弱点無視',
+  bonusIfStatus: '相手が状態異常なら追加ダメージ',
+  multiHitRandom: 'ランダムな相手に複数回攻撃',
+  multiHitBenchRandom: '敵ベンチにランダムに複数回攻撃',
+  fixedMultiHitMain: '敵メインに複数回攻撃',
+  healBenchAll: '自分のベンチ全員を回復',
+  weaknessMatchElement: '相手の弱点属性に合わせて発動',
+  drawCard: '山札からカードを引く',
+  drawOnKO: '撃破時にカードを引く',
+  selfDamageOnKO: '撃破時に自分に反動ダメージ',
+  selfSwapAfter: '攻撃後ベンチと入れ替わる',
+  forcedSwapThenStatus: '攻撃後、相手を強制交代させ状態異常付与',
+  returnHandToDeck: '相手の手札を山札に戻す',
+  preventRetreat: '相手を交代不可にする',
+  revealHandCards: '相手の手札を見る',
+  discardRandomHandCard: '相手の手札を捨てさせる',
+  bonusIfFullHp: '相手がHP満タンなら追加ダメージ',
+  bonusIfSelfFullHp: '自分のHPが満タンなら追加ダメージ',
+  becomeTypeIfWeak: '相手の弱点種族として攻撃',
+  benchBonusVsWeakness: '弱点のベンチに追加ダメージ',
+  reverseWeakness: '相手を弱点だらけにする',
+  randomBenchOrMain: '一定確率でベンチに命中',
+  bonusIfWeakness: '相手が特定の弱点を持つなら追加ダメージ',
+};
+
+function getCharacterMoveEffectTypes(c){
+  const set = new Set();
+  (c.moves||[]).forEach(m=>{
+    (m.effects||[]).forEach(ef=>{ if(ef.type) set.add(ef.type); });
+  });
+  return [...set];
+}
+
+function uniqueMoveEffectTypes(){
+  const set = new Set();
+  CHAR_DB.forEach(c=>getCharacterMoveEffectTypes(c).forEach(t=>set.add(t)));
+  return [...set];
+}
+
+function bestDamageAtCost(c, cost){
+  const moves = (c.moves||[]).filter(m=>m.cost === cost);
+  if(!moves.length) return -1; // その消費エネルギーのわざを持たない場合は最後に回す
+  return Math.max(...moves.map(m=>m.dmg));
+}
+
+const CHAR_SORT_LABELS = {
+  series: '作品順',
+  hp: '体力が多い順',
+  dmg0: '0エネルギーのダメージ順',
+  dmg1: '1エネルギーのダメージ順',
+  dmg2: '2エネルギーのダメージ順',
+};
+
+function sortCharacters(chars, sortMode){
+  const arr = [...chars];
+  switch(sortMode){
+    case 'hp': return arr.sort((a,b)=>b.hp-a.hp);
+    case 'dmg0': return arr.sort((a,b)=>bestDamageAtCost(b,0)-bestDamageAtCost(a,0));
+    case 'dmg1': return arr.sort((a,b)=>bestDamageAtCost(b,1)-bestDamageAtCost(a,1));
+    case 'dmg2': return arr.sort((a,b)=>bestDamageAtCost(b,2)-bestDamageAtCost(a,2));
+    case 'series':
+    default: return arr; // CHAR_DBの元の並び＝作品順
+  }
+}
+
 function characterMatchesFilter(c, filter){
   const typeOk = !filter.types.length || filter.types.includes(c.type);
   const moveElements = getCharacterMoveElements(c);
   const elementOk = !filter.elements.length || filter.elements.some(el=>moveElements.includes(el));
   const weaknessOk = !filter.weaknesses.length || filter.weaknesses.some(w=>c.weakness.includes(w));
-  return typeOk && elementOk && weaknessOk;
+  const moveEffectTypes = getCharacterMoveEffectTypes(c);
+  const effectTypes = filter.effectTypes || [];
+  const effectOk = !effectTypes.length || effectTypes.some(et=>moveEffectTypes.includes(et));
+  return typeOk && elementOk && weaknessOk && effectOk;
 }
 
 function uniqueCharacterTypes(){
@@ -3508,14 +3637,15 @@ function uniqueWeaknesses(){
   return [...set];
 }
 
-function filterButtonGroup(title, key, options, selected){
+function filterButtonGroup(title, key, options, selected, labelFn){
+  labelFn = labelFn || (v=>v);
   return `<div class="filter-group">
     <div class="filter-group-title">${title}</div>
     <div class="filter-options">
       ${options.map(value=>`
         <label class="filter-option">
           <input type="checkbox" data-filter-key="${key}" data-filter-value="${value}" ${selected.includes(value)?'checked':''}>
-          <span>${value}</span>
+          <span>${labelFn(value)}</span>
         </label>`).join('')}
     </div>
   </div>`;
@@ -3535,8 +3665,8 @@ function renderBuilderCard(color, name, typeLabel, bodyHtml, controlsHtml, extra
 
 function renderCharacterSection(){
   const filter = builder.charFilter;
-  const filteredChars = CHAR_DB.filter(c=>characterMatchesFilter(c, filter));
-  const activeFilterCount = filter.types.length + filter.elements.length + filter.weaknesses.length;
+  const filteredChars = sortCharacters(CHAR_DB.filter(c=>characterMatchesFilter(c, filter)), builder.charSort || 'series');
+  const activeFilterCount = filter.types.length + filter.elements.length + filter.weaknesses.length + (filter.effectTypes||[]).length;
 
   const cards = filteredChars.map(c=>{
     const stages = builder.selections.chars[c.id];
@@ -3581,6 +3711,10 @@ function renderCharacterSection(){
     <div class="char-section-controls">
       <button data-open-character-filter>絞り込み${activeFilterCount ? `（${activeFilterCount}条件）` : ''}</button>
       <span class="filter-result-count">${filteredChars.length} / ${CHAR_DB.length}体</span>
+    </div>
+    <div class="char-sort-controls">
+      <span class="char-sort-label">並び替え：</span>
+      ${Object.keys(CHAR_SORT_LABELS).map(key=>`<button data-char-sort="${key}" class="${(builder.charSort||'series')===key?'sort-active':''}">${CHAR_SORT_LABELS[key]}</button>`).join('')}
     </div>
     <div class="character-card-grid">${cards || '<div class="warn">条件に一致するキャラクターはいません。</div>'}</div>`;
 }
@@ -3763,8 +3897,9 @@ function renderManualModal(){
           <ul>
             <li><span class="manual-sub">HP</span>：キャラの体力。0になると撃破される。</li>
             <li><span class="manual-sub">種族</span>：人間・妖怪・鬼・幽霊・妖精・神・月人・魔法使いなど。一部のわざの効果に関係する。</li>
-            <li><span class="manual-sub">弱点</span>：弱点に一致する種族・属性でわざを当てると追加ダメージが入る（後述）。</li>
+            <li><span class="manual-sub">弱点</span>：弱点に一致する種族・属性でわざを当てると追加ダメージが入る（メインへの攻撃のみ。ベンチを狙うわざでは考慮されない）。</li>
             <li><span class="manual-sub">わざ</span>：それぞれに属性・消費エネルギー（コスト）・ダメージ・追加効果がある。</li>
+            <li><span class="manual-sub">特性</span>：一部のキャラクターが持つ固有の能力（✨アイコンで表示）。条件を満たすと自動的に発動する。効果によって「場に出ている間ずっと有効」なものと「メインにいるときだけ有効」なものがあるので、各キャラクターカードに表示される特性の説明で確認すること。</li>
           </ul>
 
           <h4>■ 対戦の流れ（1ターンの動き）</h4>
@@ -3837,6 +3972,7 @@ function renderFilterModal(){
         ${filterButtonGroup('種族','types',uniqueCharacterTypes(),filter.types)}
         ${filterButtonGroup('ワザに含まれる属性（追加効果を含む）','elements',uniqueMoveElements(),filter.elements)}
         ${filterButtonGroup('弱点','weaknesses',uniqueWeaknesses(),filter.weaknesses)}
+        ${filterButtonGroup('追加効果の種類','effectTypes',uniqueMoveEffectTypes(),filter.effectTypes||[],t=>EFFECT_TYPE_LABELS[t]||t)}
         <div class="controls">
           <button data-clear-character-filter class="resign">条件をクリア</button>
           <button data-apply-character-filter>この条件で絞り込む</button>
@@ -4607,6 +4743,110 @@ function winReasonText(winnerIdx, reason){
   }
 }
 
+function deckToSelections(deck){
+  const sel = freshSelections();
+  (deck||[]).forEach(c=>{
+    if(c.isEnergy){ sel.energy++; }
+    else if(c.isRetreatEnergy){ sel.retreatEnergy = (sel.retreatEnergy||0) + 1; }
+    else if(c.isItem){ if(sel.items[c.id] !== undefined) sel.items[c.id]++; }
+    else if(c.isSpecial){ if(sel.specials[c.id] !== undefined) sel.specials[c.id]++; }
+    else if(c.isSupport){ if(sel.supports[c.id] !== undefined) sel.supports[c.id]++; }
+    else {
+      const stage = c.cardStage || 'easy';
+      if(sel.chars[c.id]) sel.chars[c.id][stage] = (sel.chars[c.id][stage]||0) + 1;
+    }
+  });
+  return sel;
+}
+
+let resultSaveModalOpen = false;
+let resultSaveTargetIdx = null; // savedDecks内のどちらのデッキを保存対象にしているか
+
+function toggleResultSaveModal(open, targetIdx){
+  resultSaveModalOpen = open;
+  if(open) resultSaveTargetIdx = (typeof targetIdx === 'number') ? targetIdx : null;
+  renderResultModal();
+}
+
+function resultDeckSaveTargets(){
+  if(!savedDecks) return [];
+  if(state.mode === 'cpu') return [{ idx:0, label:'デッキ保存', slotLabel:'あなたのデッキ' }];
+  if(state.mode === 'online') return [{ idx: myPlayerIdx, label:'デッキ保存', slotLabel:'マイデッキ' }];
+  return []; // ホットシート・観戦モードは対象外
+}
+
+function resultDeckEditTargets(){
+  if(!savedDecks) return [];
+  if(state.mode === 'cpu') return [{ idx:0, label:'デッキ編集' }];
+  if(state.mode === 'hotseat') return [
+    { idx:0, label:'プレイヤー1のデッキ編集' },
+    { idx:1, label:'プレイヤー2のデッキ編集' },
+  ];
+  return []; // オンライン（相手との再接続が必要）・観戦モードは対象外
+}
+
+function startDeckEdit(editMode, playerIdx){
+  if(!savedDecks) return;
+  const prefill = savedDecks.map(d=>deckToSelections(d));
+  const aiDiff = (state && state.aiDifficulty) || 'normal';
+  builder = {
+    mode: editMode,
+    aiDifficulty: aiDiff,
+    playerIdx: playerIdx || 0,
+    decks:[null,null],
+    selections: prefill[playerIdx || 0] || freshSelections(),
+    filterOpen:false,
+    charFilter:{ types:[], elements:[], weaknesses:[], effectTypes:[] },
+    charSort:'series',
+    slotModalOpen:false,
+    prefillSelections: prefill, // ホットシートで次のプレイヤーへ移る際に使う
+  };
+  if(editMode === 'cpu'){
+    builder.decks[1] = autoBuildDeck();
+  } else if(editMode === 'hotseat' && (playerIdx||0) === 1){
+    // プレイヤー2だけを編集する場合、プレイヤー1のデッキは直前のものをそのまま使う
+    builder.decks[0] = savedDecks[0].slice();
+  }
+  state = null;
+  hideResultModal();
+  renderBuilder();
+}
+
+function renderResultSaveModal(){
+  if(!resultSaveModalOpen || resultSaveTargetIdx === null) return '';
+  const slots = loadDeckSlots();
+  const rows = slots.map((entry,i)=>{
+    if(entry){
+      const date = new Date(entry.savedAt);
+      const dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+      return `<div class="deck-slot-row">
+        <div class="deck-slot-info"><b>${entry.label}</b><span class="dr-sub">保存日時：${dateStr}</span></div>
+        <div class="deck-slot-actions">
+          <button data-result-save-slot="${i}" class="resign">上書き保存</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="deck-slot-row empty-slot">
+      <div class="deck-slot-info"><b>スロット${i+1}</b><span class="dr-sub">空き</span></div>
+      <div class="deck-slot-actions">
+        <button data-result-save-slot="${i}">このデッキを保存</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="builder-modal deck-slots-modal result-save-modal" data-close-result-save-backdrop>
+      <div class="builder-modal-box slots-box" data-slots-box>
+        <div class="builder-modal-header">
+          <h3>デッキ保存スロット</h3>
+          <button class="modal-close" data-close-result-save>×</button>
+        </div>
+        <p class="manual-content" style="margin:0 0 10px;">このデッキをスロットに保存できます。保存内容はブラウザに残るので、更新（F5）しても消えません。</p>
+        ${rows}
+      </div>
+    </div>`;
+}
+
 function renderResultModal(){
   const modal = document.getElementById('resultModal');
   if(!modal) return;
@@ -4636,9 +4876,12 @@ function renderResultModal(){
       <div class="controls">
         ${isOnline ? '' : '<button id="restartBtn">もう一度遊ぶ（同じデッキ）</button>'}
         <button id="viewLogBtn" class="manual-btn">${resultModalLogVisible ? 'ログを隠す' : 'ログを確認'}</button>
+        ${resultDeckSaveTargets().map(t=>`<button class="manual-btn" data-open-result-deck-save data-deck-idx="${t.idx}">${t.label}</button>`).join('')}
+        ${resultDeckEditTargets().map(t=>`<button class="manual-btn" data-open-result-deck-edit data-deck-idx="${t.idx}">${t.label}</button>`).join('')}
         <button id="backToMenuBtn" class="resign">${isOnline ? 'メニューに戻る' : 'デッキを組み直す'}</button>
       </div>
-    </div>`;
+    </div>
+    ${renderResultSaveModal()}`;
   modal.style.display = 'flex';
   if(resultModalLogVisible){
     const logEl = document.getElementById('resultModalLog');
@@ -4648,6 +4891,8 @@ function renderResultModal(){
 function hideResultModal(){
   const modal = document.getElementById('resultModal');
   if(modal) modal.style.display = 'none';
+  resultSaveModalOpen = false;
+  resultSaveTargetIdx = null;
 }
 
 /* =========================================================
@@ -4729,6 +4974,11 @@ appEl.addEventListener('click', (e)=>{
   if(builder){
     const t = e.target;
 
+    if(t.matches('[data-char-sort]')){
+      builder.charSort = t.dataset.charSort;
+      renderBuilder();
+      return;
+    }
     if(t.matches('[data-open-character-filter]')){
       builder.filterOpen = true;
       renderBuilder();
@@ -4740,7 +4990,7 @@ appEl.addEventListener('click', (e)=>{
       return;
     }
     if(t.matches('[data-clear-character-filter]')){
-      builder.charFilter = { types:[], elements:[], weaknesses:[] };
+      builder.charFilter = { types:[], elements:[], weaknesses:[], effectTypes:[] };
       builder.filterOpen = false;
       renderBuilder();
       return;
@@ -4930,15 +5180,49 @@ appEl.addEventListener('click', (e)=>{
 });
 
 document.getElementById('resultModal').addEventListener('click', (e)=>{
-  if(e.target.id === 'restartBtn' && savedMode !== 'online'){
+  const t = e.target;
+  if(t.id === 'restartBtn' && savedMode !== 'online'){
     resultModalLogVisible = false;
     initGame(savedMode, [shuffle(savedDecks[0].slice()), shuffle(savedDecks[1].slice())]);
-  } else if(e.target.id === 'backToMenuBtn'){
+    return;
+  }
+  if(t.id === 'backToMenuBtn'){
     resultModalLogVisible = false;
+    resultSaveModalOpen = false;
     backToMenuAfterGame();
-  } else if(e.target.id === 'viewLogBtn'){
+    return;
+  }
+  if(t.id === 'viewLogBtn'){
     resultModalLogVisible = !resultModalLogVisible;
     renderResultModal();
+    return;
+  }
+  if(t.matches('[data-open-result-deck-save]')){
+    toggleResultSaveModal(true, parseInt(t.dataset.deckIdx,10));
+    return;
+  }
+  if(t.matches('[data-open-result-deck-edit]')){
+    startDeckEdit(savedMode, parseInt(t.dataset.deckIdx,10));
+    return;
+  }
+  if(t.matches('[data-close-result-save]')){
+    toggleResultSaveModal(false);
+    return;
+  }
+  if(t.matches('[data-close-result-save-backdrop]')){
+    toggleResultSaveModal(false);
+    return;
+  }
+  if(t.matches('[data-result-save-slot]')){
+    const slotIdx = parseInt(t.dataset.resultSaveSlot,10);
+    const targets = resultDeckSaveTargets();
+    const target = targets.find(x=>x.idx === resultSaveTargetIdx) || targets[0];
+    const deck = savedDecks && savedDecks[resultSaveTargetIdx];
+    if(deck && target){
+      saveDeckToSlot(slotIdx, deckToSelections(deck), target.slotLabel);
+    }
+    toggleResultSaveModal(false);
+    return;
   }
 });
 
@@ -4992,7 +5276,9 @@ document.addEventListener('keydown', (e)=>{
       if(!draft.decks) draft.decks = [null,null];
       if(typeof draft.playerIdx !== 'number') draft.playerIdx = 0;
       if(typeof draft.filterOpen !== 'boolean') draft.filterOpen = false;
-      if(!draft.charFilter) draft.charFilter = { types:[], elements:[], weaknesses:[] };
+      if(!draft.charFilter) draft.charFilter = { types:[], elements:[], weaknesses:[], effectTypes:[] };
+      if(!draft.charFilter.effectTypes) draft.charFilter.effectTypes = [];
+      if(!draft.charSort) draft.charSort = 'series';
       builder = draft;
       if(builderTotal() > 0){
         // ある程度カードを選び終えている途中経過のみ自動的に再開する。

@@ -193,11 +193,12 @@
   /* ---- bench ---- */
   .bench-row{ display:flex; gap:6px; flex:1; flex-wrap:wrap; align-items:flex-start; min-width:140px; }
   .bench-card{
-    width:135px; background:var(--paper); color:var(--ink); border-radius:8px;
-    padding:5px 7px; font-size:9px; border-top:4px solid var(--type-color,#888);
+    width:215px; background:var(--paper); color:var(--ink); border-radius:12px;
+    padding:9px 10px; border-top:5px solid var(--type-color,#888);
     box-shadow:0 3px 8px rgba(0,0,0,.3);
+    position:relative; overflow:hidden;
   }
-  .table.log-hidden .bench-card{ width:180px; }
+  .table.log-hidden .bench-card{ width:250px; }
   .bench-card.empty{
     display:flex; align-items:center; justify-content:center; min-height:66px;
     background:rgba(255,255,255,.04); color:var(--mist);
@@ -206,14 +207,6 @@
   .bench-card.swappable{ cursor:pointer; }
   .bench-card.swappable:hover{ outline:2px solid var(--vermilion); }
   .bench-card.targetable{ outline:3px solid var(--gold); box-shadow:0 0 12px rgba(217,182,78,.8); }
-  .bc-name{ font-weight:700; font-family:"Shippori Mincho","Yu Mincho",serif; font-size:11px; display:flex; justify-content:space-between; align-items:baseline; gap:4px;}
-  .bc-type{ font-size:8px; color:#6b5d4a; font-weight:400; white-space:nowrap;}
-  .bc-hp{ margin-top:2px; color:#4a3f30;}
-  .bc-energy{ margin-top:2px; color:#6b5d4a;}
-  .bc-weak{ margin-top:2px; color:var(--vermilion-dark);}
-  .bc-passive{ margin-top:2px; color:#7a4fa0; font-weight:600; }
-  .bc-moves{ margin-top:3px; color:#6b5d4a; font-size:9px; line-height:1.4;}
-  .bc-item{ margin-top:3px; font-size:9px; color:#6b5d4a;}
 
   /* ---- log ---- */
   .log-panel{
@@ -779,7 +772,7 @@
 
   @media (max-width:480px){
     .main-slot{ flex-basis:100%; }
-    .bench-card{ width:120px; }
+    .bench-card{ width:100%; }
   }
 </style>
 </head>
@@ -4297,16 +4290,22 @@ function renderMainSlot(player, opponentPlayer, isSelfPanel, attackClickable, ta
     </div>`;
 }
 
-function renderBenchSlot(instance, interactable, benchIndex, targetable, playerIdx, slotIndex, enemyTargetable, forcedSwapTargetable, promotionTargetable, gapSwapTargetable, benchBuffTargetable){
+function renderBenchSlot(instance, interactable, benchIndex, targetable, playerIdx, slotIndex, enemyTargetable, forcedSwapTargetable, promotionTargetable, gapSwapTargetable, benchBuffTargetable, opponentForPreview){
   if(!instance){
     return `<div class="bench-card empty">空き</div>`;
   }
   const maxHp = getMaxHp(instance);
   const pct = Math.max(0, Math.round((instance.hp / maxHp) * 100));
   const color = TYPE_COLOR[instance.card.type] || '#888';
-  const weak = instance.card.weakness.length ? instance.card.weakness.join('・') : 'なし';
-  const movesText = instance.card.moves.map(m=>`${m.name}(${m.element}・${m.cost===0?'消費0':'消費'+m.cost}=${m.dmg}${effectLabel(m.effects)})`).join(' / ');
-  const statusIcon = instance.status ? (instance.status.type==='burn'?' 🔥':instance.status.type==='freeze'?' ❄️':instance.status.type==='regen'?' 💚':instance.status.type==='curse'?' 💀':instance.status.type==='retreatLock'?' ⛓️':' 🛡️') : '';
+  const weaknessLabel = instance.card.weakness.length ? instance.card.weakness.join('・') : 'なし';
+  const orbs = Array.from({length:2}, (_,i)=>`<div class="orb ${i<instance.energy?'':'empty'}"></div>`).join('');
+  const extraOrb = Math.max(0, instance.energy - 2);
+  const itemLine = instance.item ? `<div class="ac-item">🎁 ${instance.item.name}（${instance.item.desc}）</div>` : '';
+  const passiveLine = instance.card.passive ? `<div class="ac-passive">✨ ${passiveLabel(instance.card)}</div>` : '';
+  // ベンチのキャラは攻撃できないが、メインと同じ見た目でわざ一覧を表示する（クリックは不可）
+  const dummyOpponent = { main:null, bench:[] };
+  const moves = renderAttackList(instance, opponentForPreview || dummyOpponent, false);
+
   const detailAttr = (playerIdx !== undefined && slotIndex !== undefined) ? `data-detail-bench="${playerIdx}:${slotIndex}"` : '';
   const enemyAttr = enemyTargetable ? `data-enemy-bench-index="${slotIndex}"` : '';
   const forcedAttr = forcedSwapTargetable ? `data-forced-swap-index="${slotIndex}"` : '';
@@ -4314,15 +4313,17 @@ function renderBenchSlot(instance, interactable, benchIndex, targetable, playerI
   const gapAttr = gapSwapTargetable ? `data-gap-swap-index="${slotIndex}"` : '';
   const benchBuffAttr = benchBuffTargetable ? `data-benchbuff-index="${slotIndex}"` : '';
   const isTargetable = targetable || enemyTargetable || forcedSwapTargetable || promotionTargetable || gapSwapTargetable || benchBuffTargetable;
+
   return `<div class="bench-card ${interactable?'swappable':''} ${isTargetable?'targetable':''}" style="--type-color:${color}" ${interactable?`data-bench-index="${benchIndex}"`:''} ${detailAttr} ${enemyAttr} ${forcedAttr} ${promoAttr} ${gapAttr} ${benchBuffAttr}>
-    <div class="bc-name">${instance.card.name}${stageBadge(instance)}<span class="bc-type">${instance.card.type}</span></div>
-    <div class="bc-hp">HP ${Math.max(0,instance.hp)}/${maxHp}${statusIcon}</div>
+    <div class="ac-top"><span class="ac-name">${instance.card.name}${stageBadge(instance)}</span><span class="ac-type">${instance.card.type}</span></div>
+    <div class="ac-meta"><span>HP ${Math.max(0,instance.hp)} / ${maxHp}</span>${statusLabel(instance)}</div>
     <div class="hp-bar-wrap mini"><div class="hp-bar ${pct<=30?'low':''}" style="width:${pct}%"></div></div>
-    <div class="bc-energy">霊力: ${instance.energy}枚／交代: ${instance.retreatEnergy||0}枚</div>
-    <div class="bc-weak">弱点: ${weak}</div>
-    ${instance.card.passive ? `<div class="bc-passive">✨ ${passiveLabel(instance.card)}</div>` : ''}
-    <div class="bc-moves">${movesText}</div>
-    ${instance.item ? `<div class="bc-item">🎁${instance.item.name}</div>` : ''}
+    <div class="ac-energy">エネルギー: ${orbs}${extraOrb>0?` +${extraOrb}`:''} <span style="margin-left:auto">(${instance.energy}枚)</span></div>
+    <div class="ac-energy">交代エネルギー: ${instance.retreatEnergy||0}枚</div>
+    ${itemLine}
+    ${passiveLine}
+    ${moves}
+    <div class="weak-tag">弱点: ${weaknessLabel}</div>
   </div>`;
 }
 
@@ -4517,8 +4518,8 @@ function render(){
   const benchBuffOther = benchBuffPending && benchBuffPending.playerIdx === otherIdx;
 
   const handHtml = selfPlayer.hand.map((c,i)=>renderHandCard(c,i,humanActive && !forcedPending && !moveTargetingBench && !promoPending && !gapPending && !choicePending && !evolvePending && !benchBuffPending && !kamikakushiPending && !selfSwapPending,i===state.selectedHandIndex)).join('');
-  const benchOtherHtml = otherPlayer.bench.map((b,i)=>renderBenchSlot(b,false,null,false,otherIdx,i,enemyBenchTargetMode && !!b,forcedSwapOther && !!b,promoOther && !!b,gapTargetIsOther && !!b && b.hp < getMaxHp(b),benchBuffOther && !!b && !benchBuffPending.chosen.includes(i))).join('');
-  const benchSelfHtml = selfPlayer.bench.map((b,i)=>renderBenchSlot(b,selfInteractable,i,ownTargetMode && !!b,selfIdx,i,false,forcedSwapSelf && !!b,promoSelf && !!b,gapTargetIsSelf && !!b && b.hp < getMaxHp(b),benchBuffSelf && !!b && !benchBuffPending.chosen.includes(i))).join('');
+  const benchOtherHtml = otherPlayer.bench.map((b,i)=>renderBenchSlot(b,false,null,false,otherIdx,i,enemyBenchTargetMode && !!b,forcedSwapOther && !!b,promoOther && !!b,gapTargetIsOther && !!b && b.hp < getMaxHp(b),benchBuffOther && !!b && !benchBuffPending.chosen.includes(i),selfPlayer)).join('');
+  const benchSelfHtml = selfPlayer.bench.map((b,i)=>renderBenchSlot(b,selfInteractable,i,ownTargetMode && !!b,selfIdx,i,false,forcedSwapSelf && !!b,promoSelf && !!b,gapTargetIsSelf && !!b && b.hp < getMaxHp(b),benchBuffSelf && !!b && !benchBuffPending.chosen.includes(i),otherPlayer)).join('');
 
 
 

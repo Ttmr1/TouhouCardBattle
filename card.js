@@ -37,7 +37,7 @@
 ------------------------------------------------------------ */
 const CHAR_DB = [
   {
-    id:'reimu', name:'博麗霊夢', type:'人間', hp:146, weakness:[],
+    id:'reimu', name:'博麗霊夢', type:'人間', hp:136, weakness:[],
     passive:{ type:'statusImmune' },
     moves:[
       { name:'封魔陣',   element:'無', cost:0, dmg:25,  effects:[{ type:'bonusVsType', targetType:'妖怪', amount:10 }] },
@@ -46,7 +46,7 @@ const CHAR_DB = [
     ],
   },
   {
-    id:'marisa', name:'霧雨魔理沙', type:'人間', hp:154, weakness:[],
+    id:'marisa', name:'霧雨魔理沙', type:'人間', hp:139, weakness:[],
     passive:{ type:'selfHealPerTurn', amount:5 },
     moves:[
       { name:'ミルキーウェイ',        element:'星', cost:0, dmg:19, effects:[{ type:'bonusVsType', targetType:'妖怪', amount:10 }] },
@@ -107,7 +107,7 @@ const CHAR_DB = [
     id:'sakuya', name:'十六夜咲夜', type:'人間', hp:210, weakness:['鬼'],
     moves:[
       { name:'操りドール',             element:'無', cost:0, dmg:25,  effects:[{ type:'inflictStatus', status:'random' }] },
-      { name:'ジャック・ザ・ルドビレ', element:'無', cost:1, dmg:59, effects:[{ type:'drawCard', amount:1 }] },
+      { name:'ジャック・ザ・ルドビレ', element:'無', cost:1, dmg:52, effects:[{ type:'drawCard', amount:1 }] },
       { name:'殺人ドール',             element:'無', cost:2, dmg:73, effects:[{ type:'drawOnKO', amount:3 }] },
     ],
   },
@@ -226,8 +226,8 @@ const CHAR_DB = [
     id:'komachi', name:'小野塚小町', type:'神', hp:189, weakness:['その他'],
     passive:{ type:'finisherLowHp', threshold:10, amount:10 },
     moves:[
-      { name:'宵越しの銭',       element:'無', cost:0, dmg:7, effects:[{ type:'drawCard', amount:2 }] },
-      { name:'ヒガンルトゥール', element:'氷', cost:1, dmg:18, effects:[{ type:'bonusIfOpponentHpAtLeast', threshold:100, amount:36 }] },
+      { name:'宵越しの銭',       element:'無', cost:0, dmg:17, effects:[{ type:'drawCard', amount:2 }] },
+      { name:'ヒガンルトゥール', element:'氷', cost:1, dmg:28, effects:[{ type:'bonusIfOpponentHpAtLeast', threshold:100, amount:36 }] },
     ],
   },
   {
@@ -243,9 +243,9 @@ const CHAR_DB = [
   {
     id:'hina', name:'鍵山雛', type:'神', hp:192, weakness:['その他','月人'],
     moves:[
-      { name:'バットフォーチュン',           element:'無', cost:0, dmg:5, effects:[{ type:'inflictStatus', status:'burn' }, { type:'inflictStatus', status:'freeze' }] },
+      { name:'バットフォーチュン',           element:'無', cost:0, dmg:12, effects:[{ type:'inflictStatus', status:'burn' }, { type:'inflictStatus', status:'freeze' }] },
       { name:'厄神様のバイオリズム',         element:'闇', cost:1, dmg:31, effects:[{ type:'drawCardsEqualToKnockouts' }] },
-      { name:'ブロークンアミュレット',       element:'無', cost:2, dmg:5, effects:[{ type:'benchDamage', amount:35 }, { type:'selfStatus', status:'freeze', turns:1 }] },
+      { name:'ブロークンアミュレット',       element:'無', cost:2, dmg:15, effects:[{ type:'benchDamage', amount:35 }, { type:'selfStatus', status:'freeze', turns:1 }] },
     ],
   },
   {
@@ -288,7 +288,7 @@ const CHAR_DB = [
     moves:[
       { name:'怪力乱神',   element:'岩', cost:0, dmg:19 },
       { name:'地獄の苦輪', element:'岩', cost:1, dmg:62, effects:[{ type:'ignoreWeakness' }, { type:'recoil', amount:15 }] },
-      { name:'三歩必殺',   element:'岩', cost:2, dmg:95, effects:[{ type:'ignoreWeakness' }, { type:'recoil', amount:40 }] },
+      { name:'三歩必殺',   element:'岩', cost:2, dmg:91, effects:[{ type:'ignoreWeakness' }, { type:'recoil', amount:40 }] },
     ],
   },
   {
@@ -319,7 +319,7 @@ const CHAR_DB = [
   {
     id:'kokoro', name:'秦こころ', type:'神', hp:203, weakness:['妖怪','氷'],
     moves:[
-      { name:'モンキーポゼッション',   element:'無', cost:0, dmg:5,  effects:[{ type:'selfStatus', status:'shield' }, { type:'healBenchAll', amount:15 }] },
+      { name:'モンキーポゼッション',   element:'無', cost:0, dmg:9,  effects:[{ type:'selfStatus', status:'shield' }, { type:'healBenchAll', amount:15 }] },
       { name:'憂き世は憂きしの小車',   element:'光', cost:1, dmg:45 },
       { name:'怒れる忌狼の面',         element:'木', cost:1, dmg:42, effects:[{ type:'inflictStatus', status:'random' }] },
       { name:'仮面喪心舞_暗黒能楽',    element:'闇', cost:2, dmg:68, effects:[{ type:'addElement', element:'光' }] },
@@ -328,7 +328,7 @@ const CHAR_DB = [
   {
     id:'wakasagihime', name:'わかさぎ姫', type:'その他', hp:165, weakness:['木'],
     moves:[
-      { name:'テイルフィンスラップ', element:'水', cost:0, dmg:5, effects:[{ type:'selfGiveEnergy', amount:1 }, { type:'selfGiveRetreatEnergy', amount:1 }] },
+      { name:'テイルフィンスラップ', element:'水', cost:0, dmg:12, effects:[{ type:'selfGiveEnergy', amount:1 }, { type:'selfGiveRetreatEnergy', amount:1 }] },
       { name:'スケールウェイブ',     element:'水', cost:1, dmg:20, effects:[{ type:'benchDamage', amount:15 }] },
       { name:'逆鱗の荒波',           element:'水', cost:1, dmg:30, effects:[{ type:'addElement', element:'氷' }, { type:'inflictStatus', status:'freeze' }] },
       { name:'逆鱗の大荒波',         element:'水', cost:2, dmg:40, effects:[{ type:'benchDamage', amount:10 }, { type:'preventRetreat', turns:2 }] },
@@ -388,7 +388,7 @@ const CHAR_DB = [
     id:'hecatia', name:'ヘカーティア・ラピスラズリ', type:'神', hp:178, weakness:['妖怪','仙人'],
     moves:[
       { name:'アポロ反射鏡',           element:'星', cost:0, dmg:20, effects:[{ type:'addElement', element:'氷' }] },
-      { name:'地獄に降る雨',           element:'水', cost:1, dmg:20, effects:[{ type:'benchDamage', amount:10 }, { type:'inflictStatus', status:'burn' }] },
+      { name:'地獄に降る雨',           element:'水', cost:1, dmg:24, effects:[{ type:'benchDamage', amount:10 }, { type:'inflictStatus', status:'burn' }] },
       { name:'地獄のノンイデアル弾幕', element:'火', cost:2, dmg:62, effects:[{ type:'inflictStatus', status:'burn' }] },
       { name:'ルナティックインパクト', element:'星', cost:2, dmg:70, effects:[{ type:'drawCard', amount:1 }] },
     ],
